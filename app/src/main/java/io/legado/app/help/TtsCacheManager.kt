@@ -293,6 +293,39 @@ object TtsCacheManager {
     }
 
     /**
+     * 校准文件快照大小：对比快照记录与实际磁盘文件大小。
+     * 有差异则更新快照并重建分组。IO 线程调用，不卡 UI。
+     */
+    fun calibrateSizes(): Boolean {
+        if (fileSnapshot.isEmpty()) return false
+        var changed = false
+        val updated = fileSnapshot.toMutableMap()
+        val cacheDir = getCacheDir()
+        for ((fileName, recordedSize) in fileSnapshot) {
+            val file = File(cacheDir, fileName)
+            if (file.exists()) {
+                val actual = file.length()
+                if (actual != recordedSize) {
+                    updated[fileName] = actual
+                    changed = true
+                }
+            } else {
+                updated.remove(fileName)
+                changed = true
+            }
+        }
+        if (changed) {
+            fileSnapshot = updated
+            val files = scanMp3Files()
+            if (files.isNotEmpty()) {
+                val groups = buildGroupsFromFiles(files)
+                lastGroups = groups
+            }
+        }
+        return changed
+    }
+
+    /**
      * 对比当前文件列表与上次快照，返回新增和删除的文件名集合。
      */
     fun diffFiles(currentFiles: Array<File>): Pair<Set<String>, Set<String>> {

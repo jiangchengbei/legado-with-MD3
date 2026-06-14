@@ -151,6 +151,7 @@ class TtsCacheDetailDialog : DialogFragment() {
         updatePreloadRetentionButtons()
         loadCacheData()
         observeCacheProgress()
+        scheduleSizeCalibration()
     }
 
     /**
@@ -173,6 +174,25 @@ class TtsCacheDetailDialog : DialogFragment() {
                 "正在缓存 ${progress.bookName}：第 ${progress.current}/${progress.total} 章"
             } else {
                 "正在缓存 ${progress.bookName}"
+            }
+        }
+    }
+
+    /**
+     * 后台 IO 协程校准缓存文件实际大小与快照标注大小的差异。
+     * 仅在有快照数据时执行一次，不轮询不阻塞 UI。
+     */
+    private fun scheduleSizeCalibration() {
+        if (TtsCacheManager.fileSnapshot.isEmpty()) return
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            if (TtsCacheManager.calibrateSizes()) {
+                withContext(Dispatchers.Main) {
+                    if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@withContext
+                    val groups = TtsCacheManager.lastGroups
+                    if (groups.isNotEmpty()) {
+                        renderGroups(cacheListContainer!!, groups)
+                    }
+                }
             }
         }
     }
@@ -492,7 +512,7 @@ class TtsCacheDetailDialog : DialogFragment() {
         // 找到对应 book header
         for (i in 0 until container.childCount) {
             val child = container.getChildAt(i)
-            if (child.id != View.NO_ID) {
+            if (child.findViewById<TextView>(R.id.tv_book_name) != null) {
                 val bookNameView = child.findViewById<TextView>(R.id.tv_book_name)
                 if (bookNameView != null && bookNameView.text == group.bookName) {
                     val chapterContainer = child.findViewById<LinearLayout>(R.id.chapter_container)
@@ -548,6 +568,7 @@ class TtsCacheDetailDialog : DialogFragment() {
 
             val cb = chapterItem.findViewById<CheckBox>(R.id.cb_chapter_select)
             cb.visibility = View.VISIBLE
+            cb.setOnCheckedChangeListener(null)
             cb.isChecked = chapter.titleMd5 in selectedChapterMd5s
             cb.setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked) {

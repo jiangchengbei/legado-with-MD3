@@ -15,13 +15,9 @@ object IntentHelp {
     }
 
     fun getBrowserIntent(uri: Uri): Intent {
-        val intent = Intent(Intent.ACTION_VIEW)
-        intent.data = uri
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (intent.resolveActivity(appCtx.packageManager) == null) {
-            return Intent.createChooser(intent, "请选择浏览器")
-        }
-        return intent
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return Intent.createChooser(intent, null)
     }
 
     fun openTTSSetting() {

@@ -154,6 +154,9 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
             PreferKey.recordLog -> recordLog = appCtx.getPrefBoolean(PreferKey.recordLog)
 
+            PreferKey.webServiceAutoStart -> webServiceAutoStart =
+                appCtx.getPrefBoolean(PreferKey.webServiceAutoStart, false)
+
         }
     }
 

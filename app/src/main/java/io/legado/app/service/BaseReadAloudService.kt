@@ -227,7 +227,7 @@ abstract class BaseReadAloudService : BaseService(),
             IntentAction.addTimer -> addTimer()
             IntentAction.setTimer -> setTimer(intent.getIntExtra("minute", 0))
             IntentAction.startCache -> newReadAloud(
-                play = false,
+                play = true,
                 pageIndex = ReadBook.durPageIndex,
                 startPos = 0
             )

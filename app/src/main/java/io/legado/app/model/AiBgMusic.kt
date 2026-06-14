@@ -530,6 +530,7 @@ object AiBgMusic {
     fun onReadAloudState(play: Boolean, book: Book?, chapterIndex: Int, chapter: TextChapter?) {
         if (!enabled) return
         if (play) {
+            manualPaused = false
             ensureAnalysis(book, chapterIndex, chapter, force = false)
             currentPlaylist = chapterPlaylist(book?.name.orEmpty(), chapterIndex)
             if (!manualPaused) {
@@ -540,6 +541,7 @@ object AiBgMusic {
                 }
             }
         } else {
+            manualPaused = true
             pause()
         }
     }
@@ -828,6 +830,10 @@ object AiBgMusic {
         )
         if (chapterIndex == ReadBook.durChapterIndex) {
             currentPlaylist = result.items
+            if (pendingAutoPlay && !manualPaused) {
+                pendingAutoPlay = false
+                playForPosition(0)
+            }
         }
     }
 

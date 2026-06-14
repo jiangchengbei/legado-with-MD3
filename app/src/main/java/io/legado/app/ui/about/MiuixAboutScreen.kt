@@ -391,7 +391,7 @@ private fun AboutContent(
                             endActions = {
                                 ValueText("GitHub")
                             },
-                            onClick = { onIntent(AboutIntent.OpenUrl("https://github.com/HapeLee/legado-with-MD3")) },
+                            onClick = { onIntent(AboutIntent.OpenUrl("https://github.com/jiangchengbei/legado-with-MD3")) },
                         )
                     }
 
