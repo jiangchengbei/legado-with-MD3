@@ -231,7 +231,7 @@ fun RssScreen(
 
             items(uiState.items, key = { it.sourceUrl }) { source ->
                 RssSourceGridItem(
-                    modifier = Modifier.animateItem(),
+                    modifier = Modifier,
                     source = source,
                     onClick = { viewModel.openSource(source) },
                     onTop = { viewModel.topSource(source) },
