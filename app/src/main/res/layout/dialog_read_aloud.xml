@@ -34,81 +34,147 @@
 
     </LinearLayout>
 
-    <com.google.android.material.button.MaterialButtonGroup
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
         android:orientation="horizontal"
         android:layout_marginVertical="6dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/iv_play_prev"
-            style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:contentDescription="@string/prev_sentence"
-            android:tooltipText="@string/prev_sentence"
-            app:icon="@drawable/ic_skip_previous"
-            tools:ignore="UnusedAttribute" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/iv_play_pause"
-            style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginHorizontal="6dp"
-            android:contentDescription="@string/audio_play"
-            android:tooltipText="@string/audio_play"
-            app:icon="@drawable/ic_play"
-            tools:ignore="UnusedAttribute" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/iv_stop"
-            style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="6dp"
-            android:contentDescription="@string/stop"
-            android:tooltipText="@string/stop"
-            app:icon="@drawable/ic_stop_black_24dp"
-            tools:ignore="UnusedAttribute" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/iv_play_next"
-            style="@style/Widget.Material3Expressive.Button.TonalButton"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:contentDescription="@string/next_sentence"
-            android:text="@string/next_sentence"
-            app:icon="@drawable/ic_skip_next"
-            tools:ignore="UnusedAttribute" />
-
-    </com.google.android.material.button.MaterialButtonGroup>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginVertical="6dp">
-
-        <io.legado.app.lib.theme.view.ThemeSlider
-            android:id="@+id/seek_timer"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:valueFrom="0.0"
-            android:valueTo="180.0"
-            android:stepSize="1.0" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/iv_timer"
-            style="@style/Widget.Material3.Button.IconButton.Outlined"
+        <com.google.android.material.button.MaterialButtonGroup
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:contentDescription="@string/set_timer"
-            app:icon="@drawable/ic_time_add_24dp" />
+            android:gravity="center"
+            app:selectionRequired="false">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/iv_chapter_prev"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:minWidth="42dp"
+                android:minHeight="42dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/previous_chapter"
+                android:tooltipText="@string/previous_chapter"
+                android:gravity="center"
+                app:icon="@drawable/ic_fast_rewind"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconPadding="0dp"
+                tools:ignore="UnusedAttribute" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/iv_play_prev"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:minWidth="42dp"
+                android:minHeight="42dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/prev_sentence"
+                android:tooltipText="@string/prev_sentence"
+                android:gravity="center"
+                app:icon="@drawable/ic_skip_previous"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconPadding="0dp"
+                tools:ignore="UnusedAttribute" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/iv_play_pause"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:minWidth="42dp"
+                android:minHeight="42dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/audio_play"
+                android:tooltipText="@string/audio_play"
+                android:gravity="center"
+                app:icon="@drawable/ic_play"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconPadding="0dp"
+                tools:ignore="UnusedAttribute" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/iv_stop"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:minWidth="42dp"
+                android:minHeight="42dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/stop"
+                android:tooltipText="@string/stop"
+                android:gravity="center"
+                app:icon="@drawable/ic_stop_black_24dp"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconPadding="0dp"
+                tools:ignore="UnusedAttribute" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/iv_play_next"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:minWidth="42dp"
+                android:minHeight="42dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/next_sentence"
+                android:tooltipText="@string/next_sentence"
+                android:gravity="center"
+                app:icon="@drawable/ic_skip_next"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconPadding="0dp"
+                tools:ignore="UnusedAttribute" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/iv_chapter_next"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Tonal"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:minWidth="42dp"
+                android:minHeight="42dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:contentDescription="@string/next_chapter"
+                android:tooltipText="@string/next_chapter"
+                android:gravity="center"
+                app:icon="@drawable/ic_fast_forward"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconPadding="0dp"
+                tools:ignore="UnusedAttribute" />
+
+        </com.google.android.material.button.MaterialButtonGroup>
+
     </LinearLayout>
 
 
@@ -121,15 +187,15 @@
         android:layout_marginHorizontal="3dp">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/tv_pre"
+            android:id="@+id/tv_cache"
             style="@style/Widget.Material3Expressive.Button.OutlinedButton"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:textColor="?attr/colorPrimary"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:minHeight="36dp"
-            android:text="@string/previous_chapter"
+            android:text="@string/cache_manager"
             android:textSize="14sp"/>
 
         <com.google.android.material.button.MaterialButton
@@ -140,17 +206,17 @@
             android:layout_marginHorizontal="6dp"
             android:layout_weight="1"
             android:padding="0dp"
-            android:text="@string/timer_m" />
+            android:text="@string/timer_read_aloud" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/tv_next"
+            android:id="@+id/tv_bgm"
             style="@style/Widget.Material3Expressive.Button.OutlinedButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textColor="?attr/colorPrimary"
             android:layout_weight="1"
             android:layout_marginStart="6dp"
-            android:text="@string/next_chapter"
+            android:text="@string/bgm"
             android:textSize="14sp" />
 
     </com.google.android.material.button.MaterialButtonGroup>

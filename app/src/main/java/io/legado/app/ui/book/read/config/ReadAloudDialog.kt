@@ -6,8 +6,13 @@ import android.annotation.SuppressLint
 import android.content.DialogInterface
 import android.os.Bundle
 import android.view.View
+import android.widget.NumberPicker
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.slider.Slider
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import io.legado.app.R
 import io.legado.app.base.BaseBottomSheetDialogFragment
 import io.legado.app.constant.EventBus
@@ -20,7 +25,6 @@ import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.utils.getPrefBoolean
 import io.legado.app.utils.observeEvent
-import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import io.legado.app.utils.visible
 
@@ -90,7 +94,6 @@ class ReadAloudDialog : BaseBottomSheetDialogFragment(R.layout.dialog_read_aloud
         upTimerText(BaseReadAloudService.timeMinute)
         cbTtsFollowSys.isChecked = requireContext().getPrefBoolean("ttsFollowSys", true)
         upTtsSpeechRateEnabled(!cbTtsFollowSys.isChecked)
-        upSeekTimer()
     }
 
     private fun initEvent() = binding.run {
@@ -101,8 +104,8 @@ class ReadAloudDialog : BaseBottomSheetDialogFragment(R.layout.dialog_read_aloud
         ivSetting.setOnClickListener {
             ReadAloudConfigDialog().show(childFragmentManager, "readAloudConfigDialog")
         }
-        tvPre.setOnClickListener { ReadBook.moveToPrevChapter(upContent = true, toLast = false) }
-        tvNext.setOnClickListener { ReadBook.moveToNextChapter(true) }
+        ivChapterPrev.setOnClickListener { ReadBook.moveToPrevChapter(upContent = true, toLast = false) }
+        ivChapterNext.setOnClickListener { ReadBook.moveToNextChapter(true) }
         ivStop.setOnClickListener {
             ReadAloud.stop(requireContext())
             dismissAllowingStateLoss()
@@ -112,22 +115,18 @@ class ReadAloudDialog : BaseBottomSheetDialogFragment(R.layout.dialog_read_aloud
         ivPlayNext.setOnClickListener { ReadAloud.nextParagraph(requireContext()) }
         ivCatalog.setOnClickListener { callBack?.openChapterList() }
         ivToBackstage.setOnClickListener { callBack?.finish() }
+        tvBgm.setOnClickListener { showAiBgMusicPlaybackConfig() }
+        tvCache.setOnClickListener {
+            TtsCacheDetailDialog().show(childFragmentManager, "ttsCacheDetailDialog")
+        }
         cbTtsFollowSys.setOnCheckedChangeListener { _, isChecked ->
             AppConfig.ttsFlowSys = isChecked
             upTtsSpeechRateEnabled(!isChecked)
             upTtsSpeechRate()
         }
 
-        ivTimer.setOnClickListener {
-            AppConfig.ttsTimer = seekTimer.value.toInt()
-            toastOnUi("保存设定时间成功！")
-        }
-
         // 设置初始值
         seekTtsSpeechRate.value = AppConfig.ttsSpeechRate.toFloat()
-        seekTimer.value = if (BaseReadAloudService.timeMinute > 0)
-            BaseReadAloudService.timeMinute.toFloat()
-        else AppConfig.ttsTimer.toFloat()
 
         // 减速按钮逻辑
         ivTtsSpeechReduce.setOnClickListener {
@@ -148,12 +147,7 @@ class ReadAloudDialog : BaseBottomSheetDialogFragment(R.layout.dialog_read_aloud
         }
 
         btnTimer.setOnClickListener {
-            val times = intArrayOf(0, 5, 10, 15, 30, 60, 90, 180)
-            val timeKeys = times.map { "$it 分钟" }
-            context?.selector("设定时间", timeKeys) { _, index ->
-                ReadAloud.setTimer(requireContext(), times[index])
-                upTimerText(times[index])
-            }
+            showTimerDialog()
         }
 
         //设置保存的默认值
@@ -170,20 +164,94 @@ class ReadAloudDialog : BaseBottomSheetDialogFragment(R.layout.dialog_read_aloud
                 upTtsSpeechRate()
             }
         })
+    }
 
-        seekTimer.addOnChangeListener { _, value, fromUser ->
-            if (fromUser) {
-                upTimerText(value.toInt())
+    private fun showTimerDialog() {
+        val ctx = requireContext()
+        val builder = AlertDialog.Builder(ctx)
+        val view = layoutInflater.inflate(R.layout.dialog_timer_picker, null)
+        val picker = view.findViewById<NumberPicker>(R.id.number_picker)
+        val inputLayout = view.findViewById<com.google.android.material.textfield.TextInputLayout>(R.id.til_input)
+        val editText = view.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.et_input)
+        val btnSwitch = view.findViewById<MaterialButton>(R.id.btn_switch_input)
+        val btnCancel = view.findViewById<MaterialButton>(R.id.btn_cancel)
+        val btnThisTime = view.findViewById<MaterialButton>(R.id.btn_this_time)
+        val btnGlobal = view.findViewById<MaterialButton>(R.id.btn_global)
+
+        val minVal = 0
+        val maxVal = 720
+        val currentValue = BaseReadAloudService.timeMinute.takeIf { it > 0 } ?: AppConfig.ttsTimer
+        picker.minValue = minVal
+        picker.maxValue = maxVal
+        picker.value = currentValue
+        var useInputMode = false
+
+        btnSwitch.setOnClickListener {
+            useInputMode = !useInputMode
+            if (useInputMode) {
+                picker.visibility = View.GONE
+                inputLayout.visibility = View.VISIBLE
+                inputLayout.hint = "输入范围: $minVal - $maxVal"
+                editText.setText(picker.value.toString())
+            } else {
+                picker.visibility = View.VISIBLE
+                inputLayout.visibility = View.GONE
+                inputLayout.error = null
+                inputLayout.hint = null
             }
         }
 
-        seekTimer.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
-            override fun onStartTrackingTouch(slider: Slider) {}
-            override fun onStopTrackingTouch(slider: Slider) {
-                ReadAloud.setTimer(requireContext(), slider.value.toInt())
-            }
-        })
+        builder.setTitle("设定时间（分钟）")
+            .setView(view)
 
+        val dialog = builder.create()
+
+        fun getValue(): Int? {
+            return if (useInputMode) {
+                val num = editText.text?.toString()?.toIntOrNull()
+                if (num == null || num !in minVal..maxVal) {
+                    inputLayout.error = "请输入 $minVal - $maxVal 范围内的数字"
+                    null
+                } else {
+                    inputLayout.error = null
+                    num
+                }
+            } else {
+                picker.value
+            }
+        }
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnThisTime.setOnClickListener {
+            val value = getValue() ?: return@setOnClickListener
+            ReadAloud.setTimer(ctx, value)
+            upTimerText(value)
+            dialog.dismiss()
+        }
+
+        btnGlobal.setOnClickListener {
+            val value = getValue() ?: return@setOnClickListener
+            AppConfig.ttsTimer = value
+            ReadAloud.setTimer(ctx, value)
+            upTimerText(value)
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun showAiBgMusicPlaybackConfig() {
+        val items = listOf("设置", "频率", "播放列表", "AI 分析", "重新分析")
+        context?.selector("背景音乐播放配置", items) { _, index ->
+            when (index) {
+                0 -> callBack?.openAiBgMusicSettings()
+                1 -> callBack?.showAiBgMusicFrequency()
+                2 -> callBack?.showAiBgMusicPlaylist()
+                3 -> callBack?.showAiBgMusicAnalysis()
+                4 -> callBack?.reanalyzeAiBgMusic()
+            }
+        }
     }
 
     private fun upTtsSpeechRateEnabled(enabled: Boolean) {
@@ -213,21 +281,11 @@ class ReadAloudDialog : BaseBottomSheetDialogFragment(R.layout.dialog_read_aloud
         // binding.ivPlayPause.iconTint = ColorStateList.valueOf(textColor)
     }
 
-    private fun upSeekTimer() {
-        binding.seekTimer.post {
-            binding.seekTimer.value = if (BaseReadAloudService.timeMinute > 0) {
-                BaseReadAloudService.timeMinute.toFloat()
-            } else {
-                AppConfig.ttsTimer.toFloat()
-            }
-        }
-    }
-
     private fun upTimerText(timeMinute: Int) {
-        if (timeMinute < 0) {
-            binding.btnTimer.text = requireContext().getString(R.string.timer_m, 0)
+        if (timeMinute <= 0) {
+            binding.btnTimer.text = requireContext().getString(R.string.timer_read_aloud)
         } else {
-            binding.btnTimer.text = requireContext().getString(R.string.timer_m, timeMinute)
+            binding.btnTimer.text = "$timeMinute 分钟"
         }
     }
 
@@ -246,16 +304,18 @@ class ReadAloudDialog : BaseBottomSheetDialogFragment(R.layout.dialog_read_aloud
 
     override fun observeLiveBus() {
         observeEvent<Int>(EventBus.ALOUD_STATE) { upPlayState() }
-        observeEvent<Int>(EventBus.READ_ALOUD_DS) {
-            val value = it.coerceIn(binding.seekTimer.valueFrom.toInt(), binding.seekTimer.valueTo.toInt())
-            binding.seekTimer.value = value.toFloat()
-        }
+        observeEvent<Int>(EventBus.READ_ALOUD_DS) { upTimerText(it) }
     }
 
     interface CallBack {
         fun showMenuBar()
         fun openChapterList()
         fun onClickReadAloud()
+        fun openAiBgMusicSettings()
+        fun showAiBgMusicFrequency()
+        fun showAiBgMusicPlaylist()
+        fun showAiBgMusicAnalysis()
+        fun reanalyzeAiBgMusic()
         fun finish()
     }
 }

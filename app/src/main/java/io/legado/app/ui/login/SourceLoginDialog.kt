@@ -46,8 +46,11 @@ import io.legado.app.utils.setSelectionSafely
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.viewbindingdelegate.viewBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.Dispatchers.Main
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,6 +62,7 @@ class SourceLoginDialog : BaseBottomSheetDialogFragment(R.layout.dialog_login) {
 
     private val binding by viewBinding(DialogLoginBinding::bind)
     private val viewModel by activityViewModels<SourceLoginViewModel>()
+    private val loginScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var lastClickTime: Long = 0
     private var oKToClose = false
     private var rowUis: List<RowUi>? = null
@@ -641,7 +645,7 @@ class SourceLoginDialog : BaseBottomSheetDialogFragment(R.layout.dialog_login) {
         rowUis: List<RowUi>,
         isLongClick: Boolean
     ) {
-        lifecycleScope.launch(IO) {
+        loginScope.launch {
             if (action.isAbsUrl()) {
                 context?.openUrl(action!!)
             } else if (action != null) {
@@ -689,7 +693,7 @@ class SourceLoginDialog : BaseBottomSheetDialogFragment(R.layout.dialog_login) {
     }
 
     private fun login(source: BaseSource, loginData: MutableMap<String, String>) {
-        lifecycleScope.launch(IO) {
+        loginScope.launch {
             if (loginData.isEmpty()) {
                 source.removeLoginInfo()
                 withContext(Main) {

@@ -56,6 +56,7 @@ import io.legado.app.help.storage.Backup
 import io.legado.app.lib.dialogs.SelectItem
 import io.legado.app.lib.dialogs.alert
 import io.legado.app.lib.dialogs.selector
+import io.legado.app.model.AiBgMusic
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
 import io.legado.app.model.SourceCallBack
@@ -81,6 +82,7 @@ import io.legado.app.ui.book.read.config.FontConfigDialog.Companion.TEXT_ACCENT_
 import io.legado.app.ui.book.read.config.FontConfigDialog.Companion.TEXT_COLOR
 import io.legado.app.ui.book.read.config.FontSelectDialog
 import io.legado.app.ui.book.read.config.ReadAloudDialog
+import io.legado.app.ui.book.read.config.AiBgMusicSettingsDialog
 import io.legado.app.ui.book.read.config.ReadStyleDialog
 import io.legado.app.ui.book.read.config.RegexColorConfigDialog
 import io.legado.app.ui.book.read.config.RegexColorConfigDialog.Companion.REGEX_RULE_COLOR
@@ -1319,6 +1321,38 @@ class ReadBookActivity : BaseReadBookActivity(),
         ReadBook.book?.let {
             tocActivity.launch(it.bookUrl)
         }
+    }
+
+    override fun openAiBgMusicSettings() {
+        showDialogFragment<AiBgMusicSettingsDialog>()
+    }
+
+    override fun showAiBgMusicFrequency() {
+        val items = listOf("整本书", "每章", "每个场景")
+        selector("音乐切换频率", items) { _, which ->
+            AiBgMusic.frequency = which
+        }
+    }
+
+    override fun showAiBgMusicPlaylist() {
+        val playlist = AiBgMusic.playlistText(ReadBook.book?.name)
+        alert("背景音乐播放列表", playlist) {
+            okButton()
+        }.show()
+    }
+
+    override fun showAiBgMusicAnalysis() {
+        val detail = AiBgMusic.playlistDetailText(ReadBook.book?.name)
+        alert("AI 分析详情", detail) {
+            okButton()
+        }.show()
+    }
+
+    override fun reanalyzeAiBgMusic() {
+        ReadBook.book?.let { book ->
+            AiBgMusic.ensureAnalysis(book, ReadBook.durChapterIndex, ReadBook.curTextChapter, force = true)
+        }
+        toastOnUi("已开始重新分析")
     }
 
     /**

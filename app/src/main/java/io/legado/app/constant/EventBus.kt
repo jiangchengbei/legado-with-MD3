@@ -39,4 +39,8 @@ object EventBus {
     const val UP_TOC = "upToc"
 
     const val UP_ALL_BOOK_TOC = "upAllBookToc"
+
+    const val AI_BGM_CHANGED = "ai_bgm_changed"
+    const val AI_BGM_PLAY_STATE = "ai_bgm_play_state"
+    const val TTS_CACHE_PROGRESS = "ttsCacheProgress"
 }

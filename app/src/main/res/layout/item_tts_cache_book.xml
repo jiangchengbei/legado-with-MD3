@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingVertical="8dp"
+    android:background="?attr/selectableItemBackground">
+
+    <!-- 第一行：书名 + 删除 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tv_book_name"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorOnSurface"
+            android:maxLines="1"
+            android:ellipsize="end"
+            tools:text="三体" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_clear_book"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:text="删除"
+            android:textSize="12sp"
+            android:textColor="?attr/colorError"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            tools:ignore="UnusedAttribute" />
+
+    </LinearLayout>
+
+    <!-- 第二行：缓存进度 -->
+    <TextView
+        android:id="@+id/tv_chapter_progress"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="11sp"
+        android:textColor="?attr/colorPrimary"
+        android:layout_marginTop="2dp"
+        tools:text="已缓存 15/42 章" />
+
+    <!-- 第三行：文件数 + 大小 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="2dp">
+
+        <TextView
+            android:id="@+id/tv_file_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="11sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            tools:text="256 个音频" />
+
+        <TextView
+            android:id="@+id/tv_size"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            tools:text="12.5 MB" />
+
+    </LinearLayout>
+
+    <!-- 第四行：展开/收起按钮（独占一行，永不挤占） -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_expand"
+        style="@style/Widget.Material3.Button.TonalButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="展开章节详情 ▾"
+        android:textSize="12sp"
+        android:layout_marginTop="6dp" />
+
+    <!-- 章节批量操作栏（默认隐藏，选中模式时显示） -->
+    <LinearLayout
+        android:id="@+id/chapter_action_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_select_all"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:text="全选"
+            android:textSize="11sp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_delete_selected"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:text="删除选中"
+            android:textSize="11sp"
+            android:textColor="?attr/colorError"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_merge_selected"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:text="合并选中"
+            android:textSize="11sp"
+            android:textColor="?attr/colorPrimary"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp" />
+
+    </LinearLayout>
+
+    <!-- 章节缓存详情（默认隐藏） -->
+    <LinearLayout
+        android:id="@+id/chapter_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_marginTop="6dp"
+        android:background="?attr/colorSurfaceContainerLow"
+        android:paddingVertical="2dp" />
+
+</LinearLayout>

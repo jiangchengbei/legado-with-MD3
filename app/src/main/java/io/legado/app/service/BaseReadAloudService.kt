@@ -40,6 +40,7 @@ import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.glide.ImageLoader
 import io.legado.app.lib.permission.Permissions
 import io.legado.app.lib.permission.PermissionsCompat
+import io.legado.app.model.AiBgMusic
 import io.legado.app.model.ReadAloud
 import io.legado.app.model.ReadBook
 import io.legado.app.receiver.MediaButtonReceiver
@@ -201,6 +202,7 @@ abstract class BaseReadAloudService : BaseService(),
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_STOPPED)
         mediaSessionCompat.release()
         ReadBook.uploadProgress()
+        AiBgMusic.stop()
         unregisterPhoneStateListener(phoneStateListener)
         upNotificationJob?.invokeOnCompletion {
             notificationManager.cancel(NotificationId.ReadAloudService)
@@ -224,6 +226,11 @@ abstract class BaseReadAloudService : BaseService(),
             IntentAction.next -> nextChapter()
             IntentAction.addTimer -> addTimer()
             IntentAction.setTimer -> setTimer(intent.getIntExtra("minute", 0))
+            IntentAction.startCache -> newReadAloud(
+                play = false,
+                pageIndex = ReadBook.durPageIndex,
+                startPos = 0
+            )
             IntentAction.stop -> stopSelf()
         }
         return super.onStartCommand(intent, flags, startId)
@@ -287,6 +294,7 @@ abstract class BaseReadAloudService : BaseService(),
         needResumeOnCallStateIdle = false
         upReadAloudNotification()
         postEvent(EventBus.ALOUD_STATE, Status.PLAY)
+        AiBgMusic.onReadAloudState(true, ReadBook.book, ReadBook.durChapterIndex, ReadBook.curTextChapter)
     }
 
     abstract fun playStop()
@@ -305,6 +313,7 @@ abstract class BaseReadAloudService : BaseService(),
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_PAUSED)
         postEvent(EventBus.ALOUD_STATE, Status.PAUSE)
         ReadBook.uploadProgress()
+        AiBgMusic.onReadAloudState(false, ReadBook.book, ReadBook.durChapterIndex, ReadBook.curTextChapter)
         doDs()
     }
 
@@ -321,6 +330,7 @@ abstract class BaseReadAloudService : BaseService(),
         upReadAloudNotification()
         upMediaSessionPlaybackState(PlaybackStateCompat.STATE_PLAYING)
         postEvent(EventBus.ALOUD_STATE, Status.PLAY)
+        AiBgMusic.onReadAloudState(true, ReadBook.book, ReadBook.durChapterIndex, ReadBook.curTextChapter)
     }
 
     abstract fun upSpeechRate(reset: Boolean = false)

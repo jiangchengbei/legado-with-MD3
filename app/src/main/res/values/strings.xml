@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--App-->
-    <string name="app_name">Legado</string>
-    <string name="app_name_a">Legado·A</string>
+    <string name="app_name">阅读·MS</string>
+    <string name="app_name_a">阅读·MS·A</string>
     <string name="receiving_shared_label">Legado·search</string>
     <string name="tip_perm_request_storage">Legado needs storage access to find and read books. Please go "App Settings" to allow "Storage Permission".</string>
 
@@ -692,6 +692,9 @@
     <string name="select_local_image">Local image</string>
     <string name="book_type">Type:</string>
     <string name="to_backstage">Background</string>
+    <string name="bgm">背景音乐</string>
+    <string name="cache_manager">缓存管理</string>
+    <string name="timer_read_aloud">朗读定时</string>
     <string name="importing">Importing</string>
     <string name="exporting">Exporting</string>
     <string name="custom_page_key">Set Page-Turning Buttons</string>

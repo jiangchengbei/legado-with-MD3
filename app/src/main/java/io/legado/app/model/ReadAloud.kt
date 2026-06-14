@@ -134,4 +134,12 @@ object ReadAloud {
         }
     }
 
+    fun startCache(context: Context, startChapter: Int, endChapter: Int) {
+        val intent = Intent(context, aloudClass)
+        intent.action = IntentAction.startCache
+        intent.putExtra("startChapter", startChapter)
+        intent.putExtra("endChapter", endChapter)
+        context.startForegroundServiceCompat(intent)
+    }
+
 }

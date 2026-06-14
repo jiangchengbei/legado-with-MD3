@@ -48,6 +48,7 @@ import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.servicePendingIntent
 import io.legado.app.utils.toastOnUi
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -222,7 +223,10 @@ class HttpReadAloudService : BaseReadAloudService(),
                 val contentString = getChapterContent(book, chapter)
                 if (contentString.isNullOrEmpty()) continue // 内容没下载，跳过
 
-                val contentList = contentString.split("\n").filter { it.isNotEmpty() }
+                var contentList = contentString.split("\n").filter { it.isNotEmpty() }
+                if (chapter.title.isNotBlank()) {
+                    contentList = listOf(chapter.title) + contentList
+                }
 
                 contentList.forEach { content ->
                     currentCoroutineContext().ensureActive()
@@ -236,13 +240,25 @@ class HttpReadAloudService : BaseReadAloudService(),
                     if (speakText.isEmpty()) {
                         createSilentSound(fileName)
                     } else if (!hasSpeakFile(fileName)) {
-                        // 3. 文件不存在才下载
-                        runCatching {
-                            val inputStream = getSpeakStream(httpTts, speakText)
-                            if (inputStream != null) {
-                                createSpeakFile(fileName, inputStream)
-                            } else {
-                                createSilentSound(fileName)
+                        if (content == chapter.title) {
+                            // 标题异步下载，不阻塞正文缓存管道
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                runCatching {
+                                    val inputStream = getSpeakStream(httpTts, speakText)
+                                    if (inputStream != null) {
+                                        createSpeakFile(fileName, inputStream)
+                                    }
+                                }
+                            }
+                        } else {
+                            // 正文同步下载
+                            runCatching {
+                                val inputStream = getSpeakStream(httpTts, speakText)
+                                if (inputStream != null) {
+                                    createSpeakFile(fileName, inputStream)
+                                } else {
+                                    createSilentSound(fileName)
+                                }
                             }
                         }
                     }
@@ -310,7 +326,10 @@ class HttpReadAloudService : BaseReadAloudService(),
                 val contentString = getChapterContent(book, chapter)
                 if (contentString.isNullOrEmpty()) continue
 
-                val contentList = contentString.split("\n").filter { it.isNotEmpty() }
+                var contentList = contentString.split("\n").filter { it.isNotEmpty() }
+                if (chapter.title.isNotBlank()) {
+                    contentList = listOf(chapter.title) + contentList
+                }
                 
                 contentList.forEach { content ->
                     currentCoroutineContext().ensureActive()
@@ -320,9 +339,21 @@ class HttpReadAloudService : BaseReadAloudService(),
                     val fileName = "${titleMd5}_${contentMd5}"
                     
                     val speakText = content.replace(AppPattern.notReadAloudRegex, "")
-                    val dataSourceFactory = createDataSourceFactory(httpTts, speakText)
-                    val downloader = createDownloader(dataSourceFactory, fileName)
-                    downloaderChannel.send(downloader)
+                    if (content == chapter.title) {
+                        // 标题异步下载，不阻塞正文缓存管道
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            runCatching {
+                                val inputStream = getSpeakStream(httpTts, speakText)
+                                if (inputStream != null) {
+                                    createSpeakFile(fileName, inputStream)
+                                }
+                            }
+                        }
+                    } else {
+                        val dataSourceFactory = createDataSourceFactory(httpTts, speakText)
+                        val downloader = createDownloader(dataSourceFactory, fileName)
+                        downloaderChannel.send(downloader)
+                    }
                 }
             }
         } catch (e: Exception) {
