@@ -134,7 +134,7 @@ class BookshelfViewModel(
     private val sortConfigFlow: StateFlow<BookshelfSortConfig> = snapshotFlow {
         readSortConfig()
     }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), readSortConfig())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), readSortConfig())
 
     // 更新相关
     private val updateQueueLock = Any()
@@ -164,10 +164,10 @@ class BookshelfViewModel(
                 isInitialLoadingFlow.value = false
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     val allGroupsFlow: StateFlow<List<BookGroup>> = bookGroupRepository.flowAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
 
     private data class GroupPreviewState(
         val previews: ImmutableMap<Long, ImmutableList<BookUiItem>>,
@@ -193,7 +193,7 @@ class BookshelfViewModel(
             selectedGroupId = selectedGroupId
         )
     }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BookshelfGroupSelectorState())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), BookshelfGroupSelectorState())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val booksFlow: Flow<List<BookUiItem>> = groupIdFlow
@@ -229,13 +229,13 @@ class BookshelfViewModel(
         }
     }.distinctUntilChanged()
         .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyMap())
 
     private val allGroupBooksImmutableFlow: StateFlow<ImmutableMap<Long, ImmutableList<BookUiItem>>> =
         allGroupBooksFlow.map { map ->
             map.mapValues { it.value.toImmutableList() }.toImmutableMap()
         }.flowOn(Dispatchers.Default)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), persistentMapOf())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), persistentMapOf())
 
     private val visibleBooksFlow: Flow<List<BookUiItem>> = combine(
         booksFlow,
@@ -510,7 +510,7 @@ class BookshelfViewModel(
             pendingSavedBooks = interaction.pendingSavedBooks?.toImmutableList(),
             allGroupBooks = data.allGroupBooks
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BookshelfUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), BookshelfUiState())
 
     init {
         viewModelScope.launch {

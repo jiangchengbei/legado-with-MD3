@@ -252,7 +252,7 @@ fun MainScreen(
                         selected = selected,
                         onClick = {
                             coroutineScope.launch {
-                                pagerState.animateScrollToPage(index)
+                                pagerState.scrollToPage(index)
                             }
                         },
                         icon = {
@@ -264,7 +264,7 @@ fun MainScreen(
                                         Modifier.combinedClickable(
                                             onClick = {
                                                 coroutineScope.launch {
-                                                    pagerState.animateScrollToPage(index)
+                                                    pagerState.scrollToPage(index)
                                                 }
                                             },
                                             onLongClick = {
@@ -314,7 +314,7 @@ fun MainScreen(
                                 },
                                 selected = selected,
                                 onClick = {
-                                    coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                                    coroutineScope.launch { pagerState.scrollToPage(index) }
                                 },
                                 labelString = stringResource(destination.labelId),
                                 iconVector = AppIcons.mainDestination(destination, selected),
@@ -431,7 +431,7 @@ fun MainScreen(
                             selectedIndex = { pagerState.targetPage },
                             onSelected = { index ->
                                 coroutineScope.launch {
-                                    pagerState.animateScrollToPage(index)
+                                    pagerState.scrollToPage(index)
                                 }
                             },
                             backdrop = floatingBarBackdrop,
@@ -447,7 +447,7 @@ fun MainScreen(
                                 FloatingBottomBarItem(
                                     onClick = {
                                         coroutineScope.launch {
-                                            pagerState.animateScrollToPage(index)
+                                            pagerState.scrollToPage(index)
                                         }
                                     },
                                     modifier = Modifier
