@@ -337,6 +337,7 @@ abstract class BaseReadAloudService : BaseService(),
 
     fun upTtsProgress(progress: Int) {
         postEvent(EventBus.TTS_PROGRESS, progress)
+        AiBgMusic.onProgress(progress)
     }
 
     private fun prevP() {

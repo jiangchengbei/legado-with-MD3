@@ -31,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import splitties.init.appCtx
 import java.io.File
@@ -155,6 +156,8 @@ object AiBgMusic {
     """.trimIndent()
 
     private var mediaPlayer: MediaPlayer? = null
+    private var fadingPlayer: MediaPlayer? = null
+    private var crossfadeJob: Job? = null
     private var currentMusicUri: String? = null
     private var currentPlaylist: List<PlaylistItem> = emptyList()
     @Volatile
@@ -1086,14 +1089,19 @@ object AiBgMusic {
 
     private fun playUri(uri: String) {
         runCatching {
-            mediaPlayer?.release()
+            crossfadeJob?.cancel()
+            val oldPlayer = mediaPlayer
+            fadingPlayer = oldPlayer
             currentMusicUri = uri
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(appCtx, Uri.parse(uri))
                 isLooping = true
+                setVolume(0f, 0f)
                 setOnPreparedListener {
-                    updateVolume()
                     it.start()
+                    crossfadeJob = scope.launch {
+                        crossfade(oldPlayer, it)
+                    }
                     postEvent(EventBus.AI_BGM_PLAY_STATE, true)
                 }
                 prepareAsync()
@@ -1101,17 +1109,39 @@ object AiBgMusic {
         }
     }
 
+    private suspend fun crossfade(oldPlayer: MediaPlayer?, newPlayer: MediaPlayer) {
+        val fadeDuration = 2000L
+        val steps = 40
+        val stepMs = fadeDuration / steps
+        val targetVolume = volume / 100f
+        for (i in 0..steps) {
+            val fraction = i.toFloat() / steps
+            val fadeOut = targetVolume * (1f - fraction)
+            val fadeIn = targetVolume * fraction
+            runCatching { oldPlayer?.setVolume(fadeOut, fadeOut) }
+            runCatching { newPlayer.setVolume(fadeIn, fadeIn) }
+            delay(stepMs)
+        }
+        runCatching { oldPlayer?.release() }
+        fadingPlayer = null
+        runCatching { newPlayer.setVolume(targetVolume, targetVolume) }
+    }
+
     private fun pause() {
+        crossfadeJob?.cancel()
         runCatching { mediaPlayer?.pause() }
         postEvent(EventBus.AI_BGM_PLAY_STATE, false)
     }
 
     fun stop() {
+        crossfadeJob?.cancel()
         runCatching {
+            fadingPlayer?.release()
             mediaPlayer?.stop()
             mediaPlayer?.release()
         }
         manualPaused = false
+        fadingPlayer = null
         mediaPlayer = null
         currentMusicUri = null
         postEvent(EventBus.AI_BGM_PLAY_STATE, false)
