@@ -313,6 +313,8 @@ object PreferKey {
     const val selectVibrator = "selectVibrator"
     const val audioCacheCleanTime = "audioCacheCleanTime"
     const val audioPreDownloadNum = "audioPreDownloadNum"
+    const val ttsWakeRetryTimeout = "ttsWakeRetryTimeout"
+    const val ttsWakeRetryCount = "ttsWakeRetryCount"
     const val customTagColors = "customTagColors"
     const val enableCustomTagColors = "enableCustomTagColors"
     const val navIconBookshelf = "navIconBookshelf"

@@ -78,6 +78,13 @@
             android:summary="@string/audio_cache_clean_time_summary"
             android:title="@string/audio_cache_clean_time"
             app:iconSpaceReserved="false" />
+
+        <io.legado.app.lib.prefs.Preference
+            android:key="ttsWakeRetry"
+            android:summary="@string/tts_wake_retry_summary"
+            android:title="@string/tts_wake_retry_title"
+            app:iconSpaceReserved="false" />
+
         </io.legado.app.lib.prefs.PreferenceCategory>
 
 </androidx.preference.PreferenceScreen>

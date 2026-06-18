@@ -1135,6 +1135,9 @@ object AiBgMusic {
 
     fun stop() {
         crossfadeJob?.cancel()
+        analyzeJob?.cancel()
+        analyzeJob = null
+        pendingAutoPlay = false
         runCatching {
             fadingPlayer?.release()
             mediaPlayer?.stop()
@@ -1144,6 +1147,8 @@ object AiBgMusic {
         fadingPlayer = null
         mediaPlayer = null
         currentMusicUri = null
+        analyzingChapterKeys.clear()
+        activeAnalysisWindow = null
         postEvent(EventBus.AI_BGM_PLAY_STATE, false)
     }
 

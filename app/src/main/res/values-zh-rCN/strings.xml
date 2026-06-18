@@ -1465,6 +1465,12 @@
     <string name="read_aloud_preload_summary">%d</string>
     <string name="audio_cache_clean_time">音频缓存保留时间(分钟)</string>
     <string name="audio_cache_clean_time_summary">当前%d, 输入 0 代表退出即刻清理。</string>
+    <string name="tts_wake_retry_title">预缓存自动恢复</string>
+    <string name="tts_wake_retry_summary">超时: %1$d秒, 轮次: %2$d</string>
+    <string name="tts_wake_retry_summary_off">已关闭</string>
+    <string name="tts_wake_retry_timeout_label">超时判定时间(秒)</string>
+    <string name="tts_wake_retry_count_label">超时重试轮次</string>
+    <string name="tts_wake_retry_hint">轮次为0时关闭此功能</string>
     <string name="show_swipe_animation">启用滑动时动画</string>
     <string name="click_image_way">点击图片行为</string>
     <string name="show_web_log">输出日志</string>

@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Response
 import org.mozilla.javascript.WrappedException
 import splitties.init.appCtx
@@ -227,6 +228,9 @@ class HttpReadAloudService : BaseReadAloudService(),
         val book = ReadBook.book ?: return
         val currentIdx = ReadBook.durChapterIndex
         val limit = AppConfig.audioPreDownloadNum
+        val wakeTimeout = AppConfig.ttsWakeRetryTimeout * 1000L
+        val maxWakeRetries = AppConfig.ttsWakeRetryCount
+        var consecutiveTimeouts = 0
         
         try {
             for (i in 1..limit) {
@@ -251,12 +255,36 @@ class HttpReadAloudService : BaseReadAloudService(),
                     if (speakText.isEmpty()) {
                         createSilentSound(fileName)
                     } else if (!hasSpeakFile(fileName)) {
-                        runCatching {
-                            val inputStream = getSpeakStream(httpTts, speakText)
-                            if (inputStream != null) {
-                                createSpeakFile(fileName, inputStream)
+                        if (maxWakeRetries > 0) {
+                            var completed = false
+                            val stream = try {
+                                withTimeoutOrNull(wakeTimeout) {
+                                    getSpeakStream(httpTts, speakText).also { completed = true }
+                                }
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                completed = true
+                                null
+                            }
+                            if (stream != null) {
+                                createSpeakFile(fileName, stream)
+                                consecutiveTimeouts = 0
+                            } else if (!completed) {
+                                consecutiveTimeouts++
+                                AppLog.put("预缓存请求超时(${consecutiveTimeouts}/${maxWakeRetries})")
+                                if (consecutiveTimeouts > maxWakeRetries) return
                             } else {
                                 createSilentSound(fileName)
+                            }
+                        } else {
+                            runCatching {
+                                val inputStream = getSpeakStream(httpTts, speakText)
+                                if (inputStream != null) {
+                                    createSpeakFile(fileName, inputStream)
+                                } else {
+                                    createSilentSound(fileName)
+                                }
                             }
                         }
                     }

@@ -980,6 +980,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             return str * 60 * 1000L
         }
 
+    val ttsWakeRetryTimeout: Int
+        get() = appCtx.getPrefInt(PreferKey.ttsWakeRetryTimeout, 20)
+
+    val ttsWakeRetryCount: Int
+        get() = appCtx.getPrefInt(PreferKey.ttsWakeRetryCount, 3)
+
     var containerOpacity: Int
         get() = appCtx.getPrefInt(PreferKey.containerOpacity, 100)
         set(value) {
