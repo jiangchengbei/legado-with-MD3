@@ -134,9 +134,9 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
                 PreferKey.audioCacheCleanTime -> {
                     NumberPickerDialog(requireContext())
                         .setTitle(getString(R.string.audio_cache_clean_time))
-                        .setMaxValue(50)
+                        .setMaxValue(10000)
                         .setMinValue(0)
-                        .setValue(1)
+                        .setValue(AppConfig.audioCacheCleanTimeOrgin)
                         .setCustomButton((R.string.btn_default_s)) {
                             putPrefInt(PreferKey.audioCacheCleanTime, 10)
                             upPreferenceSummary(PreferKey.audioCacheCleanTime)
