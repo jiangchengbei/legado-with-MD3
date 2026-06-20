@@ -2,6 +2,8 @@ package io.legado.app.service
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.ComponentName
+import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
@@ -36,6 +38,7 @@ import io.legado.app.exception.NoStackTraceException
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.book.ContentProcessor
 import io.legado.app.help.config.AppConfig
+import io.legado.app.help.TtsCacheManager
 import io.legado.app.help.coroutine.Coroutine
 import io.legado.app.help.exoplayer.InputStreamDataSource
 import io.legado.app.help.http.okHttpClient
@@ -239,6 +242,11 @@ class HttpReadAloudService : BaseReadAloudService(),
                 val targetIndex = currentIdx + i
                 val chapter = appDb.bookChapterDao.getChapter(book.bookUrl, targetIndex) ?: break
                 
+                TtsCacheManager.addEntry(
+                    MD5Utils.md5Encode16(chapter.title),
+                    book.name, book.bookUrl, chapter.title, targetIndex
+                )
+
                 val contentString = getChapterContent(book, chapter)
                 if (contentString.isNullOrEmpty()) continue
 
@@ -273,7 +281,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                             } else if (!completed) {
                                 consecutiveTimeouts++
                                 AppLog.put("预缓存请求超时(${consecutiveTimeouts}/${maxWakeRetries})")
-                                if (consecutiveTimeouts > maxWakeRetries) return
+                                if (consecutiveTimeouts >= maxWakeRetries) return
                             } else {
                                 createSilentSound(fileName)
                             }
@@ -351,6 +359,11 @@ class HttpReadAloudService : BaseReadAloudService(),
                 val targetIndex = currentIdx + i
                 val chapter = appDb.bookChapterDao.getChapter(book.bookUrl, targetIndex) ?: break
                 
+                TtsCacheManager.addEntry(
+                    MD5Utils.md5Encode16(chapter.title),
+                    book.name, book.bookUrl, chapter.title, targetIndex
+                )
+
                 val contentString = getChapterContent(book, chapter)
                 if (contentString.isNullOrEmpty()) continue
 
@@ -422,6 +435,7 @@ class HttpReadAloudService : BaseReadAloudService(),
         httpTts: HttpTTS,
         speakText: String
     ): InputStream? {
+        var hasRestarted = false
         while (true) {
             try {
                 val analyzeUrl = AnalyzeUrl(
@@ -483,6 +497,13 @@ class HttpReadAloudService : BaseReadAloudService(),
                             val msg1 = "TTS服务器连续5次错误，已暂停阅读。"
                             AppLog.put(msg1, e, true)
                             throw e
+                        } else if (!hasRestarted && isLocalTts(httpTts)) {
+                            hasRestarted = true
+                            AppLog.put("检测到本地TTS异常，尝试重启转发器")
+                            restartLocalTtsForwarder(httpTts)
+                            delay(1000)
+                            okHttpClient.connectionPool.evictAll()
+                            downloadErrorNo = 0
                         } else {
                             AppLog.put("TTS下载音频出错，使用无声音频代替。\n朗读文本：$speakText")
                             break
@@ -495,7 +516,32 @@ class HttpReadAloudService : BaseReadAloudService(),
     }
 
     private fun normalizeTtsText(text: String): String {
-        return text.replace(Regex("[袮꧁]"), " ")
+        return text.replace(Regex("[袮꧁]"), " ").trim { it.code <= 0x20 || it == '　' }
+    }
+
+    private fun isLocalTts(httpTts: HttpTTS): Boolean {
+        val url = httpTts.url
+        return url.contains("localhost") || url.contains("127.0.0.1")
+    }
+
+    private fun extractIttsPackageName(httpTts: HttpTTS): String? {
+        val regex = Regex("[?&]engine=([^&]+)")
+        return regex.find(httpTts.url)?.groupValues?.get(1)
+    }
+
+    private suspend fun restartLocalTtsForwarder(httpTts: HttpTTS) {
+        val packageName = extractIttsPackageName(httpTts) ?: return
+        val closeIntent = Intent("ACTION_NOTIFICATION_CLOSE_SysTtsForwarderService")
+        closeIntent.setPackage(packageName)
+        sendBroadcast(closeIntent)
+        delay(1000)
+        val startIntent = Intent().apply {
+            component = ComponentName(
+                packageName,
+                "$packageName.service.forwarder.system.SysTtsForwarderService"
+            )
+        }
+        startService(startIntent)
     }
 
     private fun md5SpeakFileName(content: String, textChapter: TextChapter? = this.textChapter): String {
@@ -509,25 +555,31 @@ class HttpReadAloudService : BaseReadAloudService(),
                 MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
     }
 
+    private fun getBookCachePath(): String {
+        val bookUrl = ReadBook.book?.bookUrl ?: ""
+        val bookHash = MD5Utils.md5Encode16(bookUrl)
+        return ttsFolderPath + bookHash + File.separator
+    }
+
     private fun createSilentSound(fileName: String) {
         val file = createSpeakFile(fileName)
         file.writeBytes(resources.openRawResource(R.raw.silent_sound).readBytes())
     }
 
     private fun hasSpeakFile(name: String): Boolean {
-        return FileUtils.exist("${ttsFolderPath}$name.mp3")
+        return FileUtils.exist("${getBookCachePath()}$name.mp3")
     }
 
     private fun getSpeakFileAsMd5(name: String): File {
-        return File("${ttsFolderPath}$name.mp3")
+        return File("${getBookCachePath()}$name.mp3")
     }
 
     private fun createSpeakFile(name: String): File {
-        return FileUtils.createFileIfNotExist("${ttsFolderPath}$name.mp3")
+        return FileUtils.createFileIfNotExist("${getBookCachePath()}$name.mp3")
     }
 
     private fun createSpeakFile(name: String, inputStream: InputStream) {
-        FileUtils.createFileIfNotExist("${ttsFolderPath}$name.mp3").outputStream().use { out ->
+        FileUtils.createFileIfNotExist("${getBookCachePath()}$name.mp3").outputStream().use { out ->
             inputStream.use {
                 it.copyTo(out)
             }
@@ -540,11 +592,11 @@ class HttpReadAloudService : BaseReadAloudService(),
      */
     private fun removeCacheFile() {
         val keepTime = AppConfig.audioCacheCleanTime
-        // 只有当时间大于0时，才需要保护当前章节。如果为0，说明用户想彻底不留缓存。
         val protectCurrentChapter = keepTime > 0
         val titleMd5 = if (protectCurrentChapter) MD5Utils.md5Encode16(this.textChapter?.chapter?.title ?: "") else ""
+        val bookPath = getBookCachePath()
 
-        FileUtils.listDirsAndFiles(ttsFolderPath)?.forEach {
+        FileUtils.listDirsAndFiles(bookPath)?.forEach {
             val isSilentSound = it.length() == 2160L
 
             // 判断逻辑：

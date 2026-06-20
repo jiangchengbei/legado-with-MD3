@@ -1,6 +1,7 @@
 package io.legado.app.help
 
 import io.legado.app.data.appDb
+import io.legado.app.model.ReadBook
 import io.legado.app.ui.book.read.config.TtsCacheDetailDialog
 import io.legado.app.utils.MD5Utils
 import splitties.init.appCtx
@@ -107,104 +108,127 @@ object TtsCacheManager {
      * 根据文件列表和当前索引构建分组结果。
      */
     fun buildGroupsFromFiles(mp3Files: Array<File>): List<TtsCacheDetailDialog.CacheGroup> {
-        val resolvedMd5s = md5Index
-        val bookInfoMap = bookInfo
+        val cacheDir = getCacheDir()
+        val cacheDirName = cacheDir.name
 
-        val titleMd5ToFiles = mutableMapOf<String, MutableList<File>>()
-        val orphanFiles = mutableListOf<File>()
-        for (file in mp3Files) {
-            val nameWithoutExt = file.nameWithoutExtension
-            if (nameWithoutExt == "silent") continue
-            val underscoreIdx = nameWithoutExt.indexOf('_')
-            if (underscoreIdx <= 0) {
-                orphanFiles.add(file)
-            } else {
-                val titleMd5 = nameWithoutExt.substring(0, underscoreIdx)
-                titleMd5ToFiles.getOrPut(titleMd5) { mutableListOf() }.add(file)
+        val hashToBook = mutableMapOf<String, Pair<String, String>>()
+        try {
+            val allBooks = appDb.bookDao.all
+            for (book in allBooks) {
+                val hash = MD5Utils.md5Encode16(book.bookUrl)
+                hashToBook[hash] = Pair(book.name, book.bookUrl)
+                if (!bookInfo.containsKey(book.bookUrl)) {
+                    val count = try { appDb.bookChapterDao.getChapterCount(book.bookUrl) } catch (_: Exception) { 0 }
+                    bookInfo[book.bookUrl] = Pair(book.name, count)
+                }
             }
-        }
+        } catch (_: Exception) { }
 
-        if (titleMd5ToFiles.isEmpty() && orphanFiles.isEmpty()) return emptyList()
+        val folderToFiles = mutableMapOf<String, MutableList<File>>()
+        val rootFiles = mutableListOf<File>()
 
-        val bookUrlToMd5s = mutableMapOf<String, MutableSet<String>>()
-        val unknownMd5s = mutableSetOf<String>()
-
-        for ((titleMd5, _) in titleMd5ToFiles) {
-            val resolved = resolvedMd5s[titleMd5]
-            if (resolved != null) {
-                bookUrlToMd5s.getOrPut(resolved.bookUrl) { mutableSetOf() }.add(titleMd5)
+        for (file in mp3Files) {
+            val parentName = file.parentFile?.name ?: ""
+            if (parentName == cacheDirName) {
+                rootFiles.add(file)
             } else {
-                unknownMd5s.add(titleMd5)
+                folderToFiles.getOrPut(parentName) { mutableListOf() }.add(file)
             }
         }
 
         val result = mutableListOf<TtsCacheDetailDialog.CacheGroup>()
 
-        for ((bookUrl, md5Set) in bookUrlToMd5s) {
-            val info = bookInfoMap[bookUrl]
-            val bookName = info?.first ?: "未知书籍"
-            val totalChapters = info?.second ?: 0
+        for ((folderHash, files) in folderToFiles) {
+            val bookMatch = hashToBook[folderHash]
+            val bookName = bookMatch?.first ?: "未知书籍"
+            val bookUrl = bookMatch?.second ?: folderHash
+            val totalChapters = bookInfo[bookUrl]?.second ?: 0
+
+            val titleMd5ToFiles = mutableMapOf<String, MutableList<File>>()
+            for (file in files) {
+                val nameWithoutExt = file.nameWithoutExtension
+                if (nameWithoutExt == "silent") continue
+                val underscoreIdx = nameWithoutExt.indexOf('_')
+                if (underscoreIdx > 0) {
+                    val titleMd5 = nameWithoutExt.substring(0, underscoreIdx)
+                    titleMd5ToFiles.getOrPut(titleMd5) { mutableListOf() }.add(file)
+                }
+            }
+
             var fileCount = 0
             var totalSize = 0L
             val chapterDetails = mutableListOf<TtsCacheDetailDialog.ChapterCacheInfo>()
 
-            for (md5 in md5Set) {
-                val files = titleMd5ToFiles[md5] ?: continue
-                val size = files.sumOf { it.length() }
-                fileCount += files.size
+            for ((md5, chapterFiles) in titleMd5ToFiles) {
+                val size = chapterFiles.sumOf { it.length() }
+                fileCount += chapterFiles.size
                 totalSize += size
-                val entry = resolvedMd5s[md5]
+                val entry = md5Index[md5]
                 chapterDetails.add(
                     TtsCacheDetailDialog.ChapterCacheInfo(
                         chapterTitle = entry?.chapterTitle ?: md5,
                         titleMd5 = md5,
-                        fileCount = files.size,
+                        fileCount = chapterFiles.size,
                         size = size,
                         chapterIndex = entry?.chapterIndex ?: Int.MAX_VALUE
                     )
                 )
             }
 
-            result.add(
-                TtsCacheDetailDialog.CacheGroup(
-                    bookName = bookName,
-                    bookUrl = bookUrl,
-                    chapterCount = md5Set.size,
-                    totalChapterCount = totalChapters,
-                    fileCount = fileCount,
-                    totalSize = totalSize,
-                    titleMd5Set = md5Set,
-                    chapterDetail = chapterDetails.sortedBy { it.chapterIndex }
+            if (fileCount > 0) {
+                result.add(
+                    TtsCacheDetailDialog.CacheGroup(
+                        bookName = bookName,
+                        bookUrl = bookUrl,
+                        chapterCount = titleMd5ToFiles.size,
+                        totalChapterCount = totalChapters,
+                        fileCount = fileCount,
+                        totalSize = totalSize,
+                        titleMd5Set = titleMd5ToFiles.keys.toSet(),
+                        chapterDetail = chapterDetails.sortedBy { it.chapterIndex }
+                    )
                 )
-            )
+            }
         }
 
-        if (unknownMd5s.isNotEmpty() || orphanFiles.isNotEmpty()) {
+        if (rootFiles.isNotEmpty()) {
+            val titleMd5ToFiles = mutableMapOf<String, MutableList<File>>()
+            val orphanFiles = mutableListOf<File>()
+            for (file in rootFiles) {
+                val nameWithoutExt = file.nameWithoutExtension
+                if (nameWithoutExt == "silent") continue
+                val underscoreIdx = nameWithoutExt.indexOf('_')
+                if (underscoreIdx > 0) {
+                    val titleMd5 = nameWithoutExt.substring(0, underscoreIdx)
+                    titleMd5ToFiles.getOrPut(titleMd5) { mutableListOf() }.add(file)
+                } else {
+                    orphanFiles.add(file)
+                }
+            }
             var fileCount = 0
             var totalSize = 0L
             val chapterDetails = mutableListOf<TtsCacheDetailDialog.ChapterCacheInfo>()
-
-            for (md5 in unknownMd5s) {
-                val files = titleMd5ToFiles[md5] ?: continue
+            val allMd5s = mutableSetOf<String>()
+            for ((md5, files) in titleMd5ToFiles) {
                 val size = files.sumOf { it.length() }
                 fileCount += files.size
                 totalSize += size
+                allMd5s.add(md5)
                 chapterDetails.add(
                     TtsCacheDetailDialog.ChapterCacheInfo(
-                        chapterTitle = "未知章节($md5)",
+                        chapterTitle = md5Index[md5]?.chapterTitle ?: md5,
                         titleMd5 = md5,
                         fileCount = files.size,
                         size = size
                     )
                 )
             }
-
             if (orphanFiles.isNotEmpty()) {
                 val orphanMd5 = "__orphan__"
                 val orphanSize = orphanFiles.sumOf { it.length() }
                 fileCount += orphanFiles.size
                 totalSize += orphanSize
-                titleMd5ToFiles[orphanMd5] = orphanFiles.toMutableList()
+                allMd5s.add(orphanMd5)
                 chapterDetails.add(
                     TtsCacheDetailDialog.ChapterCacheInfo(
                         chapterTitle = "格式异常文件",
@@ -213,20 +237,20 @@ object TtsCacheManager {
                         size = orphanSize
                     )
                 )
-                unknownMd5s.add(orphanMd5)
             }
-
-            result.add(
-                TtsCacheDetailDialog.CacheGroup(
-                    bookName = "未知来源",
-                    chapterCount = unknownMd5s.size,
-                    totalChapterCount = 0,
-                    fileCount = fileCount,
-                    totalSize = totalSize,
-                    titleMd5Set = unknownMd5s,
-                    chapterDetail = chapterDetails.sortedBy { it.chapterIndex }
+            if (fileCount > 0) {
+                result.add(
+                    TtsCacheDetailDialog.CacheGroup(
+                        bookName = "未知来源(旧缓存)",
+                        chapterCount = allMd5s.size,
+                        totalChapterCount = 0,
+                        fileCount = fileCount,
+                        totalSize = totalSize,
+                        titleMd5Set = allMd5s,
+                        chapterDetail = chapterDetails.sortedBy { it.chapterIndex }
+                    )
                 )
-            )
+            }
         }
 
         return result.sortedByDescending { it.totalSize }
@@ -251,6 +275,15 @@ object TtsCacheManager {
                     }
                 }
             }
+            val currentBook = ReadBook.book
+            if (currentBook != null) {
+                val currentChapters = appDb.bookChapterDao.getChapterList(currentBook.bookUrl)
+                bookInfo[currentBook.bookUrl] = Pair(currentBook.name, currentChapters.size)
+                for ((ci, chapter) in currentChapters.withIndex()) {
+                    val md5 = MD5Utils.md5Encode16(chapter.title.trim())
+                    md5Index[md5] = IndexEntry(currentBook.name, currentBook.bookUrl, chapter.title, ci)
+                }
+            }
             indexBuilt = true
         } finally {
             isBuilding = false
@@ -271,7 +304,17 @@ object TtsCacheManager {
     fun scanMp3Files(): Array<File> {
         val dir = getCacheDir()
         if (!dir.exists() || !dir.isDirectory) return emptyArray()
-        return dir.listFiles { f -> f.isFile && f.name.endsWith(".mp3") } ?: emptyArray()
+        val result = mutableListOf<File>()
+        dir.listFiles()?.forEach { entry ->
+            if (entry.isDirectory) {
+                entry.listFiles { f -> f.isFile && f.name.endsWith(".mp3") }?.let {
+                    result.addAll(it)
+                }
+            } else if (entry.isFile && entry.name.endsWith(".mp3")) {
+                result.add(entry)
+            }
+        }
+        return result.toTypedArray()
     }
 
     /**

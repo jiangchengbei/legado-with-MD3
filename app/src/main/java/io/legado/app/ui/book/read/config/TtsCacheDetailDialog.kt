@@ -1,6 +1,9 @@
 package io.legado.app.ui.book.read.config
 
 import android.app.Dialog
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -32,6 +35,7 @@ import splitties.init.appCtx
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.RandomAccessFile
 
 /**
  * 音频缓存详情对话框 - 按书本分组显示缓存，
@@ -258,14 +262,15 @@ class TtsCacheDetailDialog : DialogFragment() {
                 }
                 // 如果索引尚未构建，触发后台构建（不等待）
                 if (!TtsCacheManager.indexBuilt && !TtsCacheManager.isBuilding) {
+                    if (view == null) return@launch
                     viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                         TtsCacheManager.buildFullIndex()
-                        if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@launch
+                        if (view == null) return@launch
                         val updatedFiles = TtsCacheManager.scanMp3Files()
                         val updatedGroups = TtsCacheManager.buildGroupsFromFiles(updatedFiles)
                         TtsCacheManager.updateSnapshot(updatedFiles, updatedGroups)
                         withContext(Dispatchers.Main) {
-                            if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@withContext
+                            if (view == null) return@withContext
                             renderGroups(cacheListContainer!!, updatedGroups)
                         }
                     }
@@ -274,7 +279,7 @@ class TtsCacheDetailDialog : DialogFragment() {
                 val groups = collectCacheGroups()
                 TtsCacheManager.updateSnapshot(mp3Files, groups)
                 withContext(Dispatchers.Main) {
-                    if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@withContext
+                    if (view == null) return@withContext
                     loadingIndicator?.visibility = View.GONE
                     container.visibility = View.VISIBLE
                     renderGroups(cacheListContainer!!, groups)
@@ -609,7 +614,7 @@ class TtsCacheDetailDialog : DialogFragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            val dir = getTtsCacheDir()
+            val dir = if (group.bookUrl.isNotBlank()) getBookCacheDir(group.bookUrl) else getTtsCacheDir()
             var deleted = 0
             dir.listFiles()?.forEach { file ->
                 if (!file.isFile || !file.name.endsWith(".mp3")) return@forEach
@@ -646,7 +651,7 @@ class TtsCacheDetailDialog : DialogFragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            val dir = getTtsCacheDir()
+            val dir = if (group.bookUrl.isNotBlank()) getBookCacheDir(group.bookUrl) else getTtsCacheDir()
             var mergedCount = 0
             var totalMergedSize = 0L
 
@@ -693,9 +698,17 @@ class TtsCacheDetailDialog : DialogFragment() {
                 }
 
                 try {
-                    mergeMp3Files(chapterFiles, finalFile)
-                    totalMergedSize += finalFile.length()
-                    mergedCount++
+                    val success = mergeMp3Files(chapterFiles, finalFile)
+                    if (success) {
+                        totalMergedSize += finalFile.length()
+                        mergedCount++
+                    } else {
+                        finalFile.delete()
+                        withContext(Dispatchers.Main) {
+                            if (view == null) return@withContext
+                            toastOnUi("「${chapterTitle}」合并失败")
+                        }
+                    }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
                         if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@withContext
@@ -717,20 +730,217 @@ class TtsCacheDetailDialog : DialogFragment() {
         }
     }
 
-    /**
-     * 合并多个 MP3 文件为一个文件（简单字节拼接）
-     */
-    private fun mergeMp3Files(files: List<File>, outputFile: File) {
+    private enum class AudioFormat { WAV, MP3, UNKNOWN }
+
+    private fun detectAudioFormat(file: File): AudioFormat {
+        if (file.length() < 4) return AudioFormat.UNKNOWN
+        FileInputStream(file).use { fis ->
+            val header = ByteArray(4)
+            if (fis.read(header) < 4) return AudioFormat.UNKNOWN
+            if (header[0] == 0x52.toByte() && header[1] == 0x49.toByte() &&
+                header[2] == 0x46.toByte() && header[3] == 0x46.toByte()) return AudioFormat.WAV
+            if (header[0] == 0x49.toByte() && header[1] == 0x44.toByte() &&
+                header[2] == 0x33.toByte()) return AudioFormat.MP3
+            if (header[0] == 0xFF.toByte() && (header[1].toInt() and 0xE0) == 0xE0) return AudioFormat.MP3
+            return AudioFormat.UNKNOWN
+        }
+    }
+
+    private fun getID3v2HeaderSize(file: File): Int {
+        if (file.length() < 10) return 0
+        FileInputStream(file).use { fis ->
+            val header = ByteArray(10)
+            if (fis.read(header) < 10) return 0
+            if (header[0] != 0x49.toByte() || header[1] != 0x44.toByte() || header[2] != 0x33.toByte()) return 0
+            return 10 + (((header[6].toInt() and 0x7F) shl 21) or
+                    ((header[7].toInt() and 0x7F) shl 14) or
+                    ((header[8].toInt() and 0x7F) shl 7) or
+                    (header[9].toInt() and 0x7F))
+        }
+    }
+
+    private fun writeIntLE(raf: RandomAccessFile, value: Int) {
+        raf.write(value and 0xFF)
+        raf.write((value shr 8) and 0xFF)
+        raf.write((value shr 16) and 0xFF)
+        raf.write((value shr 24) and 0xFF)
+    }
+
+    private fun mergeMp3Files(files: List<File>, outputFile: File): Boolean {
+        if (files.isEmpty()) return false
+        val formats = files.map { detectAudioFormat(it) }
+        val primaryFormat = formats[0]
+
+        if (primaryFormat == AudioFormat.UNKNOWN) {
+            FileOutputStream(outputFile).use { fos ->
+                for (file in files) file.inputStream().use { it.copyTo(fos) }
+            }
+            return true
+        }
+
+        if (formats.any { it != primaryFormat && it != AudioFormat.UNKNOWN }) {
+            decodeMergeToWav(files, formats, outputFile)
+            return true
+        }
+
         FileOutputStream(outputFile).use { fos ->
-            for (file in files) {
+            for ((index, file) in files.withIndex()) {
                 FileInputStream(file).use { fis ->
-                    val buffer = ByteArray(8192)
-                    var bytesRead: Int
-                    while (fis.read(buffer).also { bytesRead = it } != -1) {
-                        fos.write(buffer, 0, bytesRead)
+                    if (index == 0) {
+                        fis.copyTo(fos)
+                    } else {
+                        when (primaryFormat) {
+                            AudioFormat.WAV -> fis.skip(44)
+                            AudioFormat.MP3 -> {
+                                val id3Size = getID3v2HeaderSize(file).toLong()
+                                if (id3Size > 0) fis.skip(id3Size)
+                            }
+                            else -> {}
+                        }
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        while (fis.read(buffer).also { bytesRead = it } != -1) {
+                            fos.write(buffer, 0, bytesRead)
+                        }
                     }
                 }
             }
+        }
+
+        if (primaryFormat == AudioFormat.WAV) {
+            val totalSize = outputFile.length()
+            RandomAccessFile(outputFile, "rw").use { raf ->
+                raf.seek(4)
+                writeIntLE(raf, (totalSize - 8).toInt())
+                raf.seek(40)
+                writeIntLE(raf, (totalSize - 44).toInt())
+            }
+        }
+        return true
+    }
+
+    private fun decodeMergeToWav(files: List<File>, formats: List<AudioFormat>, outputFile: File) {
+        var sampleRate = 16000
+        var channels = 1
+        val bitsPerSample = 16
+
+        val firstWav = files.indices.firstOrNull { formats[it] == AudioFormat.WAV }
+        if (firstWav != null) {
+            RandomAccessFile(files[firstWav], "r").use { raf ->
+                raf.seek(22)
+                channels = raf.read() or (raf.read() shl 8)
+                sampleRate = raf.read() or (raf.read() shl 8) or (raf.read() shl 16) or (raf.read() shl 24)
+            }
+        } else {
+            val firstMp3 = files.indices.firstOrNull { formats[it] == AudioFormat.MP3 }
+            if (firstMp3 != null) {
+                val extractor = MediaExtractor()
+                try {
+                    extractor.setDataSource(files[firstMp3].absolutePath)
+                    if (extractor.trackCount > 0) {
+                        val fmt = extractor.getTrackFormat(0)
+                        sampleRate = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                        channels = fmt.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+                    }
+                } finally {
+                    extractor.release()
+                }
+            }
+        }
+
+        FileOutputStream(outputFile).use { fos ->
+            fos.write(ByteArray(44))
+
+            for ((index, file) in files.withIndex()) {
+                when (formats[index]) {
+                    AudioFormat.WAV -> {
+                        FileInputStream(file).use { fis ->
+                            fis.skip(44)
+                            val buffer = ByteArray(8192)
+                            var bytesRead: Int
+                            while (fis.read(buffer).also { bytesRead = it } != -1) {
+                                fos.write(buffer, 0, bytesRead)
+                            }
+                        }
+                    }
+                    AudioFormat.MP3 -> {
+                        decodeMp3ToPcm(file, fos)
+                    }
+                    else -> {
+                        file.inputStream().use { it.copyTo(fos) }
+                    }
+                }
+            }
+        }
+
+        val totalSize = outputFile.length()
+        RandomAccessFile(outputFile, "rw").use { raf ->
+            val byteRate = sampleRate * channels * bitsPerSample / 8
+            val blockAlign = channels * bitsPerSample / 8
+            raf.seek(0)
+            raf.writeBytes("RIFF")
+            writeIntLE(raf, (totalSize - 8).toInt())
+            raf.writeBytes("WAVE")
+            raf.writeBytes("fmt ")
+            writeIntLE(raf, 16)
+            raf.write(1); raf.write(0)
+            raf.write(channels and 0xFF); raf.write((channels shr 8) and 0xFF)
+            writeIntLE(raf, sampleRate)
+            writeIntLE(raf, byteRate)
+            raf.write(blockAlign and 0xFF); raf.write((blockAlign shr 8) and 0xFF)
+            raf.write(bitsPerSample and 0xFF); raf.write((bitsPerSample shr 8) and 0xFF)
+            raf.writeBytes("data")
+            writeIntLE(raf, (totalSize - 44).toInt())
+        }
+    }
+
+    private fun decodeMp3ToPcm(mp3File: File, outputStream: FileOutputStream) {
+        val extractor = MediaExtractor()
+        extractor.setDataSource(mp3File.absolutePath)
+        if (extractor.trackCount == 0) { extractor.release(); return }
+
+        extractor.selectTrack(0)
+        val format = extractor.getTrackFormat(0)
+        val mime = format.getString(MediaFormat.KEY_MIME) ?: "audio/mpeg"
+        val codec = MediaCodec.createDecoderByType(mime)
+        codec.configure(format, null, null, 0)
+        codec.start()
+
+        val bufferInfo = MediaCodec.BufferInfo()
+        var inputDone = false
+
+        try {
+            while (true) {
+                if (!inputDone) {
+                    val inputIndex = codec.dequeueInputBuffer(10000)
+                    if (inputIndex >= 0) {
+                        val inputBuffer = codec.getInputBuffer(inputIndex)!!
+                        val sampleSize = extractor.readSampleData(inputBuffer, 0)
+                        if (sampleSize < 0) {
+                            codec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                            inputDone = true
+                        } else {
+                            codec.queueInputBuffer(inputIndex, 0, sampleSize, extractor.sampleTime, 0)
+                            extractor.advance()
+                        }
+                    }
+                }
+                val outputIndex = codec.dequeueOutputBuffer(bufferInfo, 10000)
+                if (outputIndex >= 0) {
+                    if (bufferInfo.size > 0) {
+                        val outputBuffer = codec.getOutputBuffer(outputIndex)!!
+                        val pcmData = ByteArray(bufferInfo.size)
+                        outputBuffer.get(pcmData)
+                        outputStream.write(pcmData, 0, bufferInfo.size)
+                    }
+                    codec.releaseOutputBuffer(outputIndex, false)
+                    if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
+                }
+            }
+        } finally {
+            codec.stop()
+            codec.release()
+            extractor.release()
         }
     }
 
@@ -747,15 +957,19 @@ class TtsCacheDetailDialog : DialogFragment() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val cacheDir = getTtsCacheDir()
             var deleted = 0
-            cacheDir.listFiles()?.forEach { file ->
-                if (!file.isFile || !file.name.endsWith(".mp3")) return@forEach
-                val nameWithoutExt = file.nameWithoutExtension
-                val underscoreIdx = nameWithoutExt.indexOf('_')
-                if (underscoreIdx <= 0) return@forEach
-                val titleMd5 = nameWithoutExt.substring(0, underscoreIdx)
-                if (titleMd5 == chapter.titleMd5 && file.delete()) {
-                    deleted++
+            cacheDir.listFiles()?.forEach { entry ->
+                val searchDir = if (entry.isDirectory) entry else null
+                (searchDir ?: cacheDir).listFiles()?.forEach { file ->
+                    if (!file.isFile || !file.name.endsWith(".mp3")) return@forEach
+                    val nameWithoutExt = file.nameWithoutExtension
+                    val underscoreIdx = nameWithoutExt.indexOf('_')
+                    if (underscoreIdx <= 0) return@forEach
+                    val titleMd5 = nameWithoutExt.substring(0, underscoreIdx)
+                    if (titleMd5 == chapter.titleMd5 && file.delete()) {
+                        deleted++
+                    }
                 }
+                if (searchDir != null && searchDir.listFiles()?.isEmpty() == true) searchDir.delete()
             }
             // 增量更新：从索引中移除，并更新分组
             TtsCacheManager.removeEntries(setOf(chapter.titleMd5))
@@ -778,9 +992,14 @@ class TtsCacheDetailDialog : DialogFragment() {
         return File(baseDir, "httpTTS")
     }
 
+    private fun getBookCacheDir(bookUrl: String): File {
+        val hash = MD5Utils.md5Encode16(bookUrl)
+        return File(getTtsCacheDir(), hash)
+    }
+
     private fun clearGroup(group: CacheGroup) {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
-            val dir = getTtsCacheDir()
+            val dir = if (group.bookUrl.isNotBlank()) getBookCacheDir(group.bookUrl) else getTtsCacheDir()
             if (!dir.exists()) return@launch
 
             var deleted = 0
@@ -794,6 +1013,12 @@ class TtsCacheDetailDialog : DialogFragment() {
                     if (file.delete()) deleted++
                 }
             }
+            val mergedDir = File(dir, "merged")
+            if (mergedDir.exists()) {
+                mergedDir.listFiles()?.forEach { it.delete() }
+                mergedDir.delete()
+            }
+            if (dir.listFiles()?.isEmpty() == true) dir.delete()
 
             // 增量更新：只移除该组的 MD5，不重建全部索引
             TtsCacheManager.removeEntries(group.titleMd5Set)
@@ -819,13 +1044,14 @@ class TtsCacheDetailDialog : DialogFragment() {
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             val dir = getTtsCacheDir()
             if (dir.exists()) {
-                dir.listFiles()?.forEach { it.delete() }
-            }
-            // 同时清理 merged 目录
-            val mergedDir = File(dir, "merged")
-            if (mergedDir.exists()) {
-                mergedDir.listFiles()?.forEach { it.delete() }
-                mergedDir.delete()
+                dir.listFiles()?.forEach { entry ->
+                    if (entry.isDirectory) {
+                        entry.listFiles()?.forEach { it.delete() }
+                        entry.delete()
+                    } else {
+                        entry.delete()
+                    }
+                }
             }
             withContext(Dispatchers.Main) {
                 if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) return@withContext

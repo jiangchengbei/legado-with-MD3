@@ -1098,6 +1098,10 @@ object AiBgMusic {
                 isLooping = true
                 setVolume(0f, 0f)
                 setOnPreparedListener {
+                    if (manualPaused || mediaPlayer !== it) {
+                        runCatching { it.release() }
+                        return@setOnPreparedListener
+                    }
                     it.start()
                     crossfadeJob = scope.launch {
                         crossfade(oldPlayer, it)
@@ -1138,11 +1142,9 @@ object AiBgMusic {
         analyzeJob?.cancel()
         analyzeJob = null
         pendingAutoPlay = false
-        runCatching {
-            fadingPlayer?.release()
-            mediaPlayer?.stop()
-            mediaPlayer?.release()
-        }
+        runCatching { fadingPlayer?.release() }
+        runCatching { mediaPlayer?.stop() }
+        runCatching { mediaPlayer?.release() }
         manualPaused = false
         fadingPlayer = null
         mediaPlayer = null
