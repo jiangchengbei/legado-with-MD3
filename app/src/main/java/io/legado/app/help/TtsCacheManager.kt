@@ -293,9 +293,16 @@ object TtsCacheManager {
     /**
      * 获取 httpTTS 缓存目录。
      */
+    /**
+     * TTS 缓存根目录（单一来源）。
+     * 使用 getExternalFilesDir（持久应用数据目录），不会被系统/厂商当作缓存自动清理。
+     */
+    fun getBaseDir(): File {
+        return appCtx.getExternalFilesDir(null) ?: appCtx.filesDir
+    }
+
     fun getCacheDir(): File {
-        val baseDir = appCtx.externalCacheDir ?: appCtx.cacheDir
-        return File(baseDir, "httpTTS")
+        return File(getBaseDir(), "httpTTS")
     }
 
     /**

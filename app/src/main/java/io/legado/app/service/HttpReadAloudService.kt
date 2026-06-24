@@ -81,16 +81,14 @@ class HttpReadAloudService : BaseReadAloudService(),
         ExoPlayer.Builder(this).build()
     }
 
-    // 改为外部存储
+    // 持久外部存储（getExternalFilesDir，不会被系统当缓存自动清理）
     private val ttsFolderPath: String by lazy {
-        val baseDir = externalCacheDir ?: cacheDir
-        baseDir.absolutePath + File.separator + "httpTTS" + File.separator
+        TtsCacheManager.getCacheDir().absolutePath + File.separator
     }
 
     private val cache by lazy {
-        val baseDir = externalCacheDir ?: cacheDir
         SimpleCache(
-            File(baseDir, "httpTTS_cache"),
+            File(TtsCacheManager.getBaseDir(), "httpTTS_cache"),
             LeastRecentlyUsedCacheEvictor(128 * 1024 * 1024),
             StandaloneDatabaseProvider(appCtx)
         )
@@ -120,6 +118,7 @@ class HttpReadAloudService : BaseReadAloudService(),
         exoPlayer.release()
         cache.release()
         Coroutine.async {
+            AppLog.put("[TTS缓存诊断] onDestroy 触发，准备执行 removeCacheFile")
             removeCacheFile()
         }
     }
@@ -176,7 +175,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                     val fileName = md5SpeakFileName(text)
                     val speakText = text.replace(AppPattern.notReadAloudRegex, "")
                     if (speakText.isEmpty()) {
-                        AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$text")
+                        AppLog.put("[TTS缓存诊断] 创建无声(播放-空段) $fileName")
                         createSilentSound(fileName)
                     } else if (!hasSpeakFile(fileName)) {
                         runCatching {
@@ -184,6 +183,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                             if (inputStream != null) {
                                 createSpeakFile(fileName, inputStream)
                             } else {
+                                AppLog.put("[TTS缓存诊断] 创建无声(播放-失败) $fileName")
                                 createSilentSound(fileName)
                             }
                         }.onFailure {
@@ -234,24 +234,35 @@ class HttpReadAloudService : BaseReadAloudService(),
         val wakeTimeout = AppConfig.ttsWakeRetryTimeout * 1000L
         val maxWakeRetries = AppConfig.ttsWakeRetryCount
         var consecutiveTimeouts = 0
-        
+        var lastTargetIndex = currentIdx
+        var processedChapters = 0
+
+        AppLog.put("[TTS缓存诊断] 预下载开始 currentIdx=$currentIdx limit=$limit")
         try {
             for (i in 1..limit) {
                 currentCoroutineContext().ensureActive()
                 
                 val targetIndex = currentIdx + i
                 val chapter = appDb.bookChapterDao.getChapter(book.bookUrl, targetIndex) ?: break
-                
+                lastTargetIndex = targetIndex
+
                 TtsCacheManager.addEntry(
                     MD5Utils.md5Encode16(chapter.title),
                     book.name, book.bookUrl, chapter.title, targetIndex
                 )
 
                 val contentString = getChapterContent(book, chapter)
-                if (contentString.isNullOrEmpty()) continue
+                if (contentString.isNullOrEmpty()) {
+                    AppLog.put("[TTS缓存诊断] 预下载章节 $targetIndex「${chapter.title}」内容为空，跳过")
+                    continue
+                }
 
                 val contentList = contentString.split("\n").filter { it.isNotEmpty() }
 
+                var newFiles = 0
+                var hitFiles = 0
+                var emptyFiles = 0
+                var failFiles = 0
                 contentList.forEach { content ->
                     currentCoroutineContext().ensureActive()
                     downloadErrorNo = 0
@@ -261,6 +272,8 @@ class HttpReadAloudService : BaseReadAloudService(),
                     
                     val speakText = normalized.replace(AppPattern.notReadAloudRegex, "")
                     if (speakText.isEmpty()) {
+                        emptyFiles++
+                        AppLog.put("[TTS缓存诊断] 创建无声(预下载-空段) ch=$targetIndex $fileName")
                         createSilentSound(fileName)
                     } else if (!hasSpeakFile(fileName)) {
                         if (maxWakeRetries > 0) {
@@ -277,12 +290,18 @@ class HttpReadAloudService : BaseReadAloudService(),
                             }
                             if (stream != null) {
                                 createSpeakFile(fileName, stream)
+                                newFiles++
                                 consecutiveTimeouts = 0
                             } else if (!completed) {
                                 consecutiveTimeouts++
                                 AppLog.put("预缓存请求超时(${consecutiveTimeouts}/${maxWakeRetries})")
-                                if (consecutiveTimeouts >= maxWakeRetries) return
+                                if (consecutiveTimeouts >= maxWakeRetries) {
+                                    AppLog.put("[TTS缓存诊断] 预下载因连续超时中止 在第 $targetIndex 章")
+                                    return
+                                }
                             } else {
+                                failFiles++
+                                AppLog.put("[TTS缓存诊断] 创建无声(预下载-失败) ch=$targetIndex $fileName")
                                 createSilentSound(fileName)
                             }
                         } else {
@@ -290,16 +309,30 @@ class HttpReadAloudService : BaseReadAloudService(),
                                 val inputStream = getSpeakStream(httpTts, speakText)
                                 if (inputStream != null) {
                                     createSpeakFile(fileName, inputStream)
+                                    newFiles++
                                 } else {
+                                    failFiles++
+                                    AppLog.put("[TTS缓存诊断] 创建无声(预下载-失败) ch=$targetIndex $fileName")
                                     createSilentSound(fileName)
                                 }
                             }
                         }
+                    } else {
+                        hitFiles++
                     }
                 }
+                processedChapters++
+                AppLog.put(
+                    "[TTS缓存诊断] 预下载章节 $targetIndex「${chapter.title}」" +
+                        " 段落=${contentList.size} 新下载=$newFiles 命中=$hitFiles 空段=$emptyFiles 失败=$failFiles"
+                )
             }
+            AppLog.put("[TTS缓存诊断] 预下载完成 处理章节=$processedChapters 到第 $lastTargetIndex 章")
         } catch (e: Exception) {
-            AppLog.put("听书预下载异常: ${e.localizedMessage}", e)
+            AppLog.put(
+                "[TTS缓存诊断] 预下载在第 $lastTargetIndex 章被中断: ${e.javaClass.simpleName} ${e.localizedMessage}",
+                e
+            )
         }
     }
 
@@ -593,10 +626,21 @@ class HttpReadAloudService : BaseReadAloudService(),
     private fun removeCacheFile() {
         val keepTime = AppConfig.audioCacheCleanTime
         val protectCurrentChapter = keepTime > 0
-        val titleMd5 = if (protectCurrentChapter) MD5Utils.md5Encode16(this.textChapter?.chapter?.title ?: "") else ""
+        val currentTitle = this.textChapter?.chapter?.title ?: ""
+        val titleMd5 = if (protectCurrentChapter) MD5Utils.md5Encode16(currentTitle) else ""
         val bookPath = getBookCachePath()
+        val now = System.currentTimeMillis()
 
-        FileUtils.listDirsAndFiles(bookPath)?.forEach {
+        val files = FileUtils.listDirsAndFiles(bookPath)
+        AppLog.put(
+            "[TTS缓存诊断] removeCacheFile 开始 keepTime=${keepTime}ms(${keepTime / 60000}分)" +
+                " 保护当前章=$protectCurrentChapter 当前章「$currentTitle」md5=$titleMd5" +
+                " 目录=$bookPath 文件总数=${files?.size ?: 0}"
+        )
+
+        var deleted = 0
+        var kept = 0
+        files?.forEach {
             val isSilentSound = it.length() == 2160L
 
             // 判断逻辑：
@@ -609,13 +653,27 @@ class HttpReadAloudService : BaseReadAloudService(),
             } else {
                 // 模式：保留一段时间
                 // 条件：(不是当前章节) 且 (时间过期了)
-                !it.name.startsWith(titleMd5) && (System.currentTimeMillis() - it.lastModified() > keepTime)
+                !it.name.startsWith(titleMd5) && (now - it.lastModified() > keepTime)
             }
 
             if (shouldDelete || isSilentSound) {
+                val ageMin = (now - it.lastModified()) / 60000
+                val reason = when {
+                    keepTime == 0L -> "即听即焚(保留=0)"
+                    shouldDelete -> "非当前章且过期(年龄=${ageMin}分>${keepTime / 60000}分)"
+                    else -> "无声占位(无视保留时间)"
+                }
+                AppLog.put(
+                    "[TTS缓存诊断] 删除 ${it.name} 大小=${it.length()}${if (isSilentSound) "(无声)" else ""}" +
+                        " 年龄=${ageMin}分 原因=$reason"
+                )
                 FileUtils.delete(it.absolutePath)
+                deleted++
+            } else {
+                kept++
             }
         }
+        AppLog.put("[TTS缓存诊断] removeCacheFile 结束 删除=$deleted 保留=$kept")
     }
 
 
@@ -756,6 +814,7 @@ class HttpReadAloudService : BaseReadAloudService(),
         }
         val mediaItem = exoPlayer.currentMediaItem ?: return
         val filePath = mediaItem.localConfiguration!!.uri.path!!
+        AppLog.put("[TTS缓存诊断] 播放错误删除当前文件 $filePath")
         File(filePath).delete()
     }
 

@@ -118,9 +118,9 @@ class ReadAloudConfigDialog : BasePrefDialogFragment() {
                 PreferKey.audioPreDownloadNum -> {
                     NumberPickerDialog(requireContext())
                         .setTitle(getString(R.string.read_aloud_preload))
-                        .setMaxValue(50)
+                        .setMaxValue(200)
                         .setMinValue(0)
-                        .setValue(10)
+                        .setValue(AppConfig.audioPreDownloadNum)
                         .setCustomButton((R.string.btn_default_s)) {
                             putPrefInt(PreferKey.audioPreDownloadNum, 10)
                             upPreferenceSummary(PreferKey.audioPreDownloadNum)

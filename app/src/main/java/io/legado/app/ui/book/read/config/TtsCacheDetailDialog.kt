@@ -988,8 +988,7 @@ class TtsCacheDetailDialog : DialogFragment() {
     }
 
     private fun getTtsCacheDir(): File {
-        val baseDir = appCtx.externalCacheDir ?: appCtx.cacheDir
-        return File(baseDir, "httpTTS")
+        return TtsCacheManager.getCacheDir()
     }
 
     private fun getBookCacheDir(bookUrl: String): File {

@@ -6,6 +6,7 @@ import io.legado.app.R
 import io.legado.app.constant.EventBus
 import io.legado.app.data.entities.BaseSource
 import io.legado.app.data.entities.HttpTTS
+import io.legado.app.help.TtsCacheManager
 import io.legado.app.model.ReadAloud
 import io.legado.app.ui.rss.read.RssJsExtensions
 import io.legado.app.ui.widget.dialog.BottomWebViewDialog
@@ -61,7 +62,7 @@ class SourceLoginJsExtensions(
         activity.lifecycleScope.launch(IO) {
             ReadAloud.upReadAloudClass()
             val ttsFolderPath =
-                "${activity.cacheDir.absolutePath}${File.separator}httpTTS${File.separator}"
+                "${TtsCacheManager.getCacheDir().absolutePath}${File.separator}"
             FileUtils.listDirsAndFiles(ttsFolderPath)?.forEach {
                 FileUtils.delete(it.absolutePath)
             }
