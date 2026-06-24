@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.effect
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -18,6 +20,7 @@ import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.floor
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun BgEffectBackground(
     dynamicBackground: Boolean,

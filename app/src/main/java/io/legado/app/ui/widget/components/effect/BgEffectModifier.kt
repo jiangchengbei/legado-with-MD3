@@ -1,5 +1,7 @@
 package io.legado.app.ui.widget.components.effect
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -11,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 internal fun Modifier.bgEffectDraw(
     painter: BgEffectPainter,
     preset: BgEffectConfig.Config,
@@ -77,6 +80,7 @@ private data class BgEffectElement(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private class BgEffectNode(
     private var painter: BgEffectPainter,
     private var preset: BgEffectConfig.Config,

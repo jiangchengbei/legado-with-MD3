@@ -692,9 +692,9 @@
     <string name="select_local_image">Local image</string>
     <string name="book_type">Type:</string>
     <string name="to_backstage">Background</string>
-    <string name="bgm">背景音乐</string>
-    <string name="cache_manager">缓存管理</string>
-    <string name="timer_read_aloud">朗读定时</string>
+    <string name="bgm" translatable="false">背景音乐</string>
+    <string name="cache_manager" translatable="false">缓存管理</string>
+    <string name="timer_read_aloud" translatable="false">朗读定时</string>
     <string name="importing">Importing</string>
     <string name="exporting">Exporting</string>
     <string name="custom_page_key">Set Page-Turning Buttons</string>
