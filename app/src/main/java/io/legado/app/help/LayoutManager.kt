@@ -13,7 +13,7 @@ object LayoutManager {
         fun create(recyclerView: RecyclerView): RecyclerView.LayoutManager
     }
 
-    @IntDef(RecyclerView.HORIZONTAL, RecyclerView.VERTICAL)
+    @IntDef(LinearLayoutManager.HORIZONTAL, LinearLayoutManager.VERTICAL)
     @Retention(AnnotationRetention.SOURCE)
     annotation class Orientation
 

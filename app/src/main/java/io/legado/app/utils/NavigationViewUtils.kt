@@ -4,6 +4,7 @@ package io.legado.app.utils
 
 import android.content.res.ColorStateList
 import androidx.annotation.ColorInt
+import com.google.android.material.internal.NavigationMenuView
 import com.google.android.material.navigation.NavigationView
 
 fun NavigationView.setItemIconColors(
@@ -32,5 +33,10 @@ fun NavigationView.setItemTextColors(
         intArrayOf(normalColor, selectedColor)
     )
     itemTextColor = textSl
+}
+
+fun NavigationView.disableScrollbar() {
+    val navigationMenuView = getChildAt(0) as? NavigationMenuView
+    navigationMenuView?.isVerticalScrollBarEnabled = false
 }
 

@@ -38,7 +38,6 @@ import io.legado.app.help.webView.WebJsExtensions
 import java.io.ByteArrayInputStream
 
 @SuppressLint("SetJavaScriptEnabled")
-@Suppress("JavascriptInterface")
 @Composable
 fun RssStartPage(
     rssSource: RssSource?,

@@ -59,7 +59,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -145,7 +144,7 @@ fun ThemeConfigScreen(
     fun loadFonts() {
         fontItems = loadFontFiles(context, fontFolderUri)
     }
-    LaunchedEffect(Unit) {
+    remember {
         val saved = context.getPrefString(PreferKey.fontFolder)
         if (!saved.isNullOrEmpty()) fontFolderUri = Uri.parse(saved)
         loadFonts()
