@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!--App-->
     <string name="app_name">阅读·MS</string>
     <string name="app_name_a">阅读·MS·A</string>
@@ -692,9 +692,9 @@
     <string name="select_local_image">Local image</string>
     <string name="book_type">Type:</string>
     <string name="to_backstage">Background</string>
-    <string name="bgm">背景音乐</string>
-    <string name="cache_manager">缓存管理</string>
-    <string name="timer_read_aloud">朗读定时</string>
+    <string name="bgm" tools:ignore="MissingTranslation">背景音乐</string>
+    <string name="cache_manager" tools:ignore="MissingTranslation">缓存管理</string>
+    <string name="timer_read_aloud" tools:ignore="MissingTranslation">朗读定时</string>
     <string name="importing">Importing</string>
     <string name="exporting">Exporting</string>
     <string name="custom_page_key">Set Page-Turning Buttons</string>

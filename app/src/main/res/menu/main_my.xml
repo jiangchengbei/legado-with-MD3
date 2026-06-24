@@ -8,6 +8,6 @@
         android:showAsAction="always"
         android:title="@string/help"
         android:icon="@drawable/ic_help"
-        tools:ignore="AlwaysShowAction" />
+        tools:ignore="AlwaysShowAction,AppCompatResource" />
 
 </menu>

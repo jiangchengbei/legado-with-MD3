@@ -1,5 +1,6 @@
 package io.legado.app.ui.widget.components.effect
 
+import android.annotation.SuppressLint
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -155,6 +156,7 @@ private class BgEffectNode(
         }
     }
 
+    @SuppressLint("NewApi")
     override fun ContentDrawScope.draw() {
         drawRect(surface)
         if (effectBackground) {

@@ -67,6 +67,7 @@ fun View.hideSoftInput() = run {
     inputMethodManager.hideSoftInputFromWindow(this.windowToken, 0)
 }
 
+@SuppressLint("WrongConstant")
 fun EditText.showSoftInput() = run {
     requestFocus()
     inputMethodManager.showSoftInput(this, InputMethodManager.RESULT_SHOWN)

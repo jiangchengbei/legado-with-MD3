@@ -1,5 +1,6 @@
 package io.legado.app.constant
 
+import android.annotation.SuppressLint
 import androidx.annotation.IntDef
 
 /**
@@ -56,12 +57,13 @@ object BookType {
 
     @Target(AnnotationTarget.VALUE_PARAMETER)
     @Retention(AnnotationRetention.SOURCE)
-    @IntDef(text, updateError, audio, image, webFile, local, archive, notShelf)
+    @IntDef(video, text, updateError, audio, image, webFile, local, archive, notShelf)
     annotation class Type
 
     /**
      * 所有可以从书源转换的书籍类型
      */
+    @SuppressLint("WrongConstant")
     const val allBookType = text or image or audio or webFile
 
     const val allBookTypeLocal = text or image or audio or webFile or local
