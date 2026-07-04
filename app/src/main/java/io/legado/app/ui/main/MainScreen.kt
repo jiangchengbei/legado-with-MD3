@@ -362,7 +362,7 @@ fun MainScreen(
                                 }
                             ),
                         userScrollEnabled = true,
-                        beyondViewportPageCount = 1
+                        beyondViewportPageCount = destinations.size
                     ) { page ->
                         val destination = destinations.getOrNull(page) ?: return@HorizontalPager
                         when (destination) {

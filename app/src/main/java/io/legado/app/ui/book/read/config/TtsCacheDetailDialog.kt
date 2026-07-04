@@ -1,6 +1,9 @@
 package io.legado.app.ui.book.read.config
 
 import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -456,6 +459,18 @@ class TtsCacheDetailDialog : DialogFragment() {
                 }
             }
 
+            bookHeader.findViewById<MaterialButton>(R.id.btn_view_book).setOnClickListener {
+                val bookDir = getBookCacheDir(group.bookUrl)
+                if (bookDir.exists()) {
+                    val path = bookDir.absolutePath
+                    val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("path", path))
+                    toastOnUi("路径已复制：$path")
+                } else {
+                    toastOnUi("缓存目录不存在")
+                }
+            }
+
             bookHeader.findViewById<MaterialButton>(R.id.btn_clear_book).setOnClickListener {
                 clearGroup(group = group)
             }
@@ -660,7 +675,10 @@ class TtsCacheDetailDialog : DialogFragment() {
                 val chapterFiles = dir.listFiles()?.filter { file ->
                     file.isFile && file.name.endsWith(".mp3") &&
                             file.name.startsWith("${md5}_")
-                }?.sortedBy { it.name } ?: continue
+                }?.sortedBy { file ->
+                    val parts = file.nameWithoutExtension.split("_")
+                    if (parts.size >= 3) parts[1].toIntOrNull() ?: 0 else 0
+                } ?: continue
 
                 if (chapterFiles.isEmpty()) continue
                 if (chapterFiles.size == 1) {

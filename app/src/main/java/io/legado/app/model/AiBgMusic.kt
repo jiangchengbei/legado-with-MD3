@@ -750,11 +750,11 @@ object AiBgMusic {
         playForPosition(position)
     }
 
-    fun isPlaying(): Boolean = mediaPlayer?.isPlaying == true
+    fun isPlaying(): Boolean = runCatching { mediaPlayer?.isPlaying == true }.getOrDefault(false)
 
     fun toggleManualPlayback(book: Book?, chapterIndex: Int, chapter: TextChapter?, position: Int): Boolean {
         if (!enabled) return false
-        if (mediaPlayer?.isPlaying == true) {
+        if (runCatching { mediaPlayer?.isPlaying == true }.getOrDefault(false)) {
             manualPaused = true
             pause()
             return false
@@ -1083,7 +1083,7 @@ object AiBgMusic {
         val item = currentPlaylist.firstOrNull { position in it.start..max(it.start, it.end) }
             ?: currentPlaylist.firstOrNull()
             ?: return
-        if (item.musicUri == currentMusicUri && mediaPlayer?.isPlaying == true) return
+        if (item.musicUri == currentMusicUri && runCatching { mediaPlayer?.isPlaying == true }.getOrDefault(false)) return
         playUri(item.musicUri)
     }
 

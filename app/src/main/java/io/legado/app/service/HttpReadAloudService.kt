@@ -172,7 +172,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                         text = text.substring(paragraphStartPos)
                     }
                     text = normalizeTtsText(text)
-                    val fileName = md5SpeakFileName(text)
+                    val fileName = md5SpeakFileName(text, index)
                     val speakText = text.replace(AppPattern.notReadAloudRegex, "")
                     if (speakText.isEmpty()) {
                         AppLog.put("[TTS缓存诊断] 创建无声(播放-空段) $fileName")
@@ -263,12 +263,12 @@ class HttpReadAloudService : BaseReadAloudService(),
                 var hitFiles = 0
                 var emptyFiles = 0
                 var failFiles = 0
-                contentList.forEach { content ->
+                contentList.forEachIndexed { index, content ->
                     currentCoroutineContext().ensureActive()
                     downloadErrorNo = 0
                     
                     val normalized = normalizeTtsText(content)
-                    val fileName = md5SpeakFileName(normalized, chapter.title)
+                    val fileName = md5SpeakFileName(normalized, index, chapter.title)
                     
                     val speakText = normalized.replace(AppPattern.notReadAloudRegex, "")
                     if (speakText.isEmpty()) {
@@ -362,7 +362,7 @@ class HttpReadAloudService : BaseReadAloudService(),
                     if (speakText.isEmpty()) {
                         AppLog.put("阅读段落内容为空，使用无声音频代替。\n朗读文本：$speakText")
                     }
-                    val fileName = md5SpeakFileName(text)
+                    val fileName = md5SpeakFileName(text, index)
                     val dataSourceFactory = createDataSourceFactory(httpTts, speakText)
                     val downloader = createDownloader(dataSourceFactory, fileName)
                     downloaderChannel.send(downloader)
@@ -402,11 +402,11 @@ class HttpReadAloudService : BaseReadAloudService(),
 
                 val contentList = contentString.split("\n").filter { it.isNotEmpty() }
                 
-                contentList.forEach { content ->
+                contentList.forEachIndexed { index, content ->
                     currentCoroutineContext().ensureActive()
                     downloadErrorNo = 0
                     val normalized = normalizeTtsText(content)
-                    val fileName = md5SpeakFileName(normalized, chapter.title)
+                    val fileName = md5SpeakFileName(normalized, index, chapter.title)
                     
                     val speakText = normalized.replace(AppPattern.notReadAloudRegex, "")
                     val dataSourceFactory = createDataSourceFactory(httpTts, speakText)
@@ -577,14 +577,16 @@ class HttpReadAloudService : BaseReadAloudService(),
         startService(startIntent)
     }
 
-    private fun md5SpeakFileName(content: String, textChapter: TextChapter? = this.textChapter): String {
+    private fun md5SpeakFileName(content: String, index: Int, textChapter: TextChapter? = this.textChapter): String {
         val titleToUse = textChapter?.chapter?.title ?: ""
         return MD5Utils.md5Encode16(titleToUse) + "_" +
+                index.toString().padStart(6, '0') + "_" +
                 MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
     }
 
-    private fun md5SpeakFileName(content: String, chapterTitle: String): String {
+    private fun md5SpeakFileName(content: String, index: Int, chapterTitle: String): String {
         return MD5Utils.md5Encode16(chapterTitle) + "_" +
+                index.toString().padStart(6, '0') + "_" +
                 MD5Utils.md5Encode16("${ReadAloud.httpTTS?.url}-|-$speechRate-|-$content")
     }
 
